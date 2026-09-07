@@ -1,0 +1,48 @@
+# ChangeFlow - Change Request Tracker
+
+> **Precision Modern SaaS Application** built with **Next.js 16**, **React 19**, **TypeScript**, and **Tailwind CSS**. Designed for software agencies to rapidly capture client change requests from Slack/Jira/Email, attach scope/cost/timeline estimates, and dispatch interactive tokenized client approval links.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Run the Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 2. Build for Production
+```bash
+npm run build
+npm start
+```
+
+---
+
+## 📱 Implemented Screens & Routes
+
+| # | Screen Name | Route | Description |
+|---|---|---|---|
+| **1** | **ChangeFlow - Agency Dashboard** | [`/`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/page.tsx) | Velocity intake charts, stat matrix (Total Requests, Pending Approval, Approved, Total Value), filter tabs, live search, CSV export, and change request table. |
+| **2** | **ChangeFlow Logo Asset** | [`/design-system`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/design-system/page.tsx) | Scalable SVG mark & PNG preview with vector download. |
+| **3** | **Change Request Tracker Spec** | [`/design-system`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/design-system/page.tsx) | Architecture specification, library overview, data model, and integration goals. |
+| **4** | **Professional Headshot Asset** | [`/assets/04_headshot_pm.png`](file:///c:/Users/CT/Desktop/Chaneg%20Request/public/assets/04_headshot_pm.png) | Sarah Chen (Lead PM / Partner). |
+| **5** | **Design System** | [`/design-system`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/design-system/page.tsx) | Precision Modern SaaS palette, typography scale (Geist + JetBrains Mono), spacing, elevation tiers, and status badges. |
+| **2** | **ChangeFlow Logo Asset** | [`public/assets/logo.svg`](file:///c:/Users/CT/Desktop/Chaneg%20Request/public/assets/logo.svg) | Scalable vector brand logo. |
+| **3** | **Change Request Tracker Spec** | [`stitch_raw/code/03_tracker_spec.md`](file:///c:/Users/CT/Desktop/Chaneg%20Request/stitch_raw/code/03_tracker_spec.md) | Architecture specification & data layer overview. |
+| **4** | **Professional Headshot Asset** | [`public/assets/04_headshot_pm.png`](file:///c:/Users/CT/Desktop/Chaneg%20Request/public/assets/04_headshot_pm.png) | Sarah Chen (Lead PM / Partner). |
+| **5** | **Design System Specification** | [`stitch_raw/code/05_design_system.md`](file:///c:/Users/CT/Desktop/Chaneg%20Request/stitch_raw/code/05_design_system.md) | Precision Modern SaaS palette, typography scale, and elevation tiers. |
+| **6** | **ChangeFlow - Agency Sign In** | [`/login`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/login/page.tsx) | Team portal login with quick-fill testing credentials, Google Workspace auth, and SOC2/Supabase hooks. |
+| **7** | **Request Detail & Scope Estimate** | [`/requests/CR-1042`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/requests/[id]/page.tsx) | Deep-dive scope editor with real-time hour steppers, live rate calculations ($3,600 USD), Slack quote excerpt, deliverables breakdown, exclusions, and dispatch triggers. |
+| **8** | **Client Approval (Mobile)** | [`/approval/CR-1042`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/approval/[id]/page.tsx) | Responsive client view with mobile frame preview toggle, 256-bit token ribbon, terms agreement, interactive authorization with loading animation, revision request flow, and signed confirmation state `#CF-9821`. |
+| **9** | **Dashboard with Slide-over Panel** | [`/` (Press `N` or click "+ New Request")](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/components/SlideoverDrawer.tsx) | Smooth slide-in panel to capture new requests with client selector, intake channel picker, urgency pills, and instant scope generation. |
+
+---
+
+## 📦 Raw Stitch Assets & Code
+
+All raw downloads from Stitch Project ID `18075879198080234593` are preserved locally:
+- **Screenshots**: [`stitch_raw/screenshots/`](file:///c:/Users/CT/Desktop/Chaneg%20Request/stitch_raw/screenshots/)
+- **Original HTML / SVG / Markdown**: [`stitch_raw/code/`](file:///c:/Users/CT/Desktop/Chaneg%20Request/stitch_raw/code/)
+
