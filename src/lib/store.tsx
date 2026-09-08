@@ -78,12 +78,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Load from localStorage if present
   useEffect(() => {
     try {
+      const saved = localStorage.getItem('changeflow_requests');
+      if (saved) {
+        setRequests(JSON.parse(saved));
+      }
       const savedReqs = localStorage.getItem('changeflow_requests');
       if (savedReqs) setRequests(JSON.parse(savedReqs));
       
       const savedUser = localStorage.getItem('changeflow_user');
       if (savedUser) setCurrentUser(JSON.parse(savedUser));
     } catch (e) {
+      console.warn('Failed to load local changeflow requests', e);
       console.warn('Failed to load local changeflow data', e);
     }
   }, []);

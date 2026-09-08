@@ -23,6 +23,7 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const [deliverables, setDeliverables] = useState<ScopeDeliverable[]>(req?.deliverables || []);
   const [targetSprint, setTargetSprint] = useState(req?.targetSprint || 'Sprint 38 (Q3 Release)');
   const [newNote, setNewNote] = useState('');
+  const [isDetailedView, setIsDetailedView] = useState(false);
   const [notes, setNotes] = useState([
     {
       author: 'Sarah Chen',
@@ -127,6 +128,9 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
     return null;
   };
 
+  const Section = isDetailedView ? 'div' : 'details';
+  const SectionHeader = isDetailedView ? 'div' : 'summary';
+
   return (
     <div className="min-h-screen bg-[#f8f9ff] flex flex-col">
       <Header />
@@ -150,7 +154,23 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <span className={`text-xs font-semibold ${isDetailedView ? 'text-[#4f46e5]' : 'text-[#464555]'}`}>
+                  Detailed View
+                </span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={isDetailedView}
+                    onChange={(e) => setIsDetailedView(e.target.checked)}
+                  />
+                  <div className={`block w-8 h-4.5 rounded-full transition-colors ${isDetailedView ? 'bg-[#4f46e5]' : 'bg-[#cbd5e1]'}`}></div>
+                  <div className={`absolute left-0.5 top-0.5 bg-white w-3.5 h-3.5 rounded-full transition-transform ${isDetailedView ? 'transform translate-x-3.5' : ''}`}></div>
+                </div>
+              </label>
+
               <button
                 onClick={() => window.print()}
                 title="Print / Save PDF Spec"
@@ -200,7 +220,7 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#e2e8f0]">
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-[#777587]">How the request was received</span>
+                    <span className="text-xs text-[#777587]">{isDetailedView ? 'Intake Source' : 'How the request was received'}</span>
                     <span className="text-sm font-semibold text-[#0b1c30]">
                       {req.channel} — {req.channelSource}
                     </span>
@@ -222,11 +242,11 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
               </div>
 
               {/* Expandable Sections */}
-              <details className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden group">
-                <summary className="p-4 cursor-pointer font-bold text-[#0b1c30] bg-[#fafbff] border-b border-[#e2e8f0] hover:bg-gray-50 flex items-center justify-between list-none [&::-webkit-details-marker]:hidden">
-                  What we will deliver
-                  <span className="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-                </summary>
+              <Section className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden group">
+                <SectionHeader className="p-4 cursor-pointer font-bold text-[#0b1c30] bg-[#fafbff] border-b border-[#e2e8f0] hover:bg-gray-50 flex items-center justify-between list-none [&::-webkit-details-marker]:hidden">
+                  {isDetailedView ? 'Technical Scope Deliverables' : 'What we will deliver'}
+                  {!isDetailedView && <span className="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>}
+                </SectionHeader>
                 <div className="p-4 flex flex-col gap-3">
                   {deliverables.map((del, index) => (
                     <div
@@ -278,13 +298,13 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
                     </div>
                   ))}
                 </div>
-              </details>
+              </Section>
 
-              <details className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden group">
-                <summary className="p-4 cursor-pointer font-bold text-[#0b1c30] bg-[#fafbff] border-b border-[#e2e8f0] hover:bg-gray-50 flex items-center justify-between list-none [&::-webkit-details-marker]:hidden">
-                  Not included
-                  <span className="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-                </summary>
+              <Section className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden group">
+                <SectionHeader className="p-4 cursor-pointer font-bold text-[#0b1c30] bg-[#fafbff] border-b border-[#e2e8f0] hover:bg-gray-50 flex items-center justify-between list-none [&::-webkit-details-marker]:hidden">
+                  {isDetailedView ? 'Exclusions' : 'Not included'}
+                  {!isDetailedView && <span className="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>}
+                </SectionHeader>
                 <div className="p-4">
                   <ul className="list-disc list-inside text-sm text-[#464555] space-y-1">
                     {req.exclusions.map((exc, i) => (
@@ -292,13 +312,13 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
                     ))}
                   </ul>
                 </div>
-              </details>
+              </Section>
 
-              <details className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden group">
-                <summary className="p-4 cursor-pointer font-bold text-[#0b1c30] bg-[#fafbff] border-b border-[#e2e8f0] hover:bg-gray-50 flex items-center justify-between list-none [&::-webkit-details-marker]:hidden">
-                  Internal notes
-                  <span className="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>
-                </summary>
+              <Section className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden group">
+                <SectionHeader className="p-4 cursor-pointer font-bold text-[#0b1c30] bg-[#fafbff] border-b border-[#e2e8f0] hover:bg-gray-50 flex items-center justify-between list-none [&::-webkit-details-marker]:hidden">
+                  {isDetailedView ? 'Internal Agency Thread' : 'Internal notes'}
+                  {!isDetailedView && <span className="material-symbols-outlined group-open:rotate-180 transition-transform">expand_more</span>}
+                </SectionHeader>
                 <div className="p-4 flex flex-col gap-4">
                   <div className="flex flex-col gap-3">
                     {notes.map((n, i) => (
@@ -336,14 +356,14 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
                     </button>
                   </form>
                 </div>
-              </details>
+              </Section>
             </div>
 
             {/* RIGHT COLUMN */}
             <div className="lg:col-span-5 flex flex-col gap-6 sticky top-20">
               {/* Cost and timeline Card */}
               <div className="bg-white rounded-xl p-6 border border-[#e2e8f0] shadow-sm flex flex-col gap-5">
-                <h3 className="text-lg font-bold text-[#0b1c30]">Cost and timeline</h3>
+                <h3 className="text-lg font-bold text-[#0b1c30]">{isDetailedView ? 'Commercial Scope Estimator' : 'Cost and timeline'}</h3>
                 
                 <div className="text-4xl font-bold font-mono text-[#0b1c30]">
                   ${totalCost.toLocaleString()}
@@ -367,7 +387,7 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Target delivery:</span>
+                    <span>{isDetailedView ? 'Target Sprint' : 'Target delivery'}:</span>
                     <span className="font-semibold text-[#0b1c30]">{targetSprint}</span>
                   </div>
                   <div className="flex justify-between items-center">

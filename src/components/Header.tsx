@@ -7,7 +7,7 @@ import { useApp } from '@/lib/store';
 
 export function Header() {
   const pathname = usePathname();
-  const { requests, globalSearchQuery, setGlobalSearchQuery } = useApp();
+  const { requests, globalSearchQuery, setGlobalSearchQuery, currentUser, setIsProfileModalOpen } = useApp();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -16,6 +16,7 @@ export function Header() {
   const navItems = [
     { label: 'Dashboard', href: '/', icon: 'dashboard' },
     { label: 'Requests', href: '/#table', icon: 'list_alt' },
+    { label: 'Requests', href: '/requests', icon: 'list_alt' },
     { label: 'Reports', href: '/reports', icon: 'bar_chart' },
   ];
 
@@ -137,21 +138,21 @@ export function Header() {
 
             {/* Profile Badge */}
             <button 
-              onClick={() => useApp().setIsProfileModalOpen(true)}
+              onClick={() => setIsProfileModalOpen(true)}
               className="flex items-center gap-2 pl-2 border-l border-[#d3e4fe]/80 text-left hover:opacity-80 transition-opacity"
               title="Edit Profile"
             >
               <img
                 alt="Profile"
                 className="w-8 h-8 rounded-full object-cover ring-1 ring-[#4f46e5]/30"
-                src={useApp().currentUser?.avatarUrl || '/assets/04_headshot_pm.png'}
+                src={currentUser?.avatarUrl || '/assets/04_headshot_pm.png'}
               />
               <div className="hidden lg:flex flex-col">
                 <span className="text-xs font-semibold text-[#0b1c30] leading-none">
-                  {useApp().currentUser?.name || 'Sarah Chen'}
+                  {currentUser?.name || 'Sarah Chen'}
                 </span>
                 <span className="text-[10px] text-[#464555] mt-1 leading-none">
-                  {useApp().currentUser?.role || 'Lead PM / Partner'}
+                  {currentUser?.role || 'Lead PM / Partner'}
                 </span>
               </div>
             </button>

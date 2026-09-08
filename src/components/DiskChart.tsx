@@ -98,3 +98,4 @@ export function DiskChart({ data, title, size = 120, thickness = 20 }: DiskChart
     </div>
   );
 }
+
