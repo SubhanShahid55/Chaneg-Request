@@ -135,8 +135,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         client_id: data.databaseId,
         title: data.title,
         client_quote: data.rawQuote,
-        source_channel: data.channel,
+        source_channel: data.channel === 'Portal' ? undefined : data.channel,
         priority: data.urgency === 'Critical' ? 'critical' : data.urgency === 'High' ? 'priority' : 'standard',
+        hourly_rate: data.hourlyRate,
+        hours: data.estimatedHours,
+        cost: data.estimatedCost,
+        target_delivery_date: data.targetSprint,
+        timeline_days: data.targetTurnaroundDays,
       });
       setRequests(await fetchRequests());
       showToast('Request created', `${data.title} was saved to the database.`);

@@ -116,6 +116,11 @@ export interface CreateRequestBody {
   client_quote?: string;
   source_channel?: SourceChannel;
   priority?: Priority;
+  hourly_rate?: number;
+  hours?: number;
+  cost?: number;
+  target_delivery_date?: string;
+  timeline_days?: number;
   deliverables?: Array<{ description: string; hours: number; category: string }>;
   exclusions?: string[];
 }

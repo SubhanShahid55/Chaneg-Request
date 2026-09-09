@@ -100,6 +100,11 @@ export async function createRequest(data: {
   source_channel?: string;
   priority?: string;
   project_id?: string;
+  hourly_rate?: number;
+  hours?: number;
+  cost?: number;
+  target_delivery_date?: string;
+  timeline_days?: number;
 }) {
   return apiFetch<any>('/requests', { method: 'POST', body: JSON.stringify(data) });
 }
