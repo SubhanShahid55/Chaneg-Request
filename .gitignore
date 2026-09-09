@@ -20,14 +20,9 @@ skills-lock.json
 **/*.instructions.md
 **/*.prompt.md
 
-# Design exports and source references not used by either deployment
+# Design exports and local Supabase configuration not used by deployment
 /stitch_raw/
-/backend/supabase/reset_dev_data.sql
 /backend/supabase/
-!/backend/supabase/
-/backend/supabase/remove_non_admin_users.sql
-!/backend/supabase/migrations/
-!/backend/supabase/migrations/*
 
 # Local tooling and coverage output
 .vercel/
