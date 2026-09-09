@@ -1,7 +1,27 @@
 import { Router, Request, Response } from 'express';
-import { supabaseAdmin } from '../supabase.js';
+import { supabaseAdmin, createUserClient } from '../supabase.js';
 
 const router = Router();
+
+/** POST /auth/password - finish an invitation by setting the user's password. */
+router.post('/password', async (req: Request, res: Response): Promise<void> => {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!token) {
+    res.status(401).json({ error: 'Your invitation session is missing or expired.' });
+    return;
+  }
+  if (password.length < 8) {
+    res.status(400).json({ error: 'Your password must be at least 8 characters.' });
+    return;
+  }
+  const { data, error } = await createUserClient(token).auth.updateUser({ password });
+  if (error || !data.user) {
+    res.status(400).json({ error: 'We could not set your password. Please request a new invitation.' });
+    return;
+  }
+  res.json({ success: true });
+});
 
 /** POST /auth/login - sign in with Supabase Auth credentials. */
 router.post('/login', async (req: Request, res: Response): Promise<void> => {

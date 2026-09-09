@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { validateSession } from '@/lib/api';
 
-const publicPaths = ['/', '/login', '/approval'];
+const publicPaths = ['/', '/login', '/set-password', '/approval'];
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,8 +16,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const finish = async () => {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       const invitedToken = hashParams.get('access_token');
+      const invitationType = hashParams.get('type');
       if (invitedToken) {
         localStorage.setItem('changeflow_access_token', invitedToken);
+        if (invitationType === 'invite' && pathname !== '/set-password') {
+          router.replace('/set-password');
+          return;
+        }
         window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
       }
 

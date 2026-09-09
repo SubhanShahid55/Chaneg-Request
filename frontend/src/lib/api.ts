@@ -40,6 +40,13 @@ export async function validateSession(token: string) {
   return result.profile;
 }
 
+export async function setInvitationPassword(password: string) {
+  return apiFetch<{ success: true }>('/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
 export function logout() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('changeflow_access_token');
