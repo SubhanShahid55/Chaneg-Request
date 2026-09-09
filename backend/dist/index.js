@@ -11,10 +11,21 @@ import statsRoutes from './routes/stats.js';
 import approvalRoutes from './routes/approval.js';
 import eventsRoutes from './routes/events.js';
 const app = express();
+const allowedOrigins = new Set([
+    config.appUrl.replace(/\/$/, ''),
+    'https://change-flow-eight.vercel.app',
+    ...config.corsOrigins,
+]);
 // ─── Global middleware ──────────────────────────────────────
 app.use(helmet());
 app.use(cors({
-    origin: config.appUrl,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin.replace(/\/$/, ''))) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error('Origin is not allowed by CORS'));
+    },
     credentials: true,
 }));
 app.use(express.json());

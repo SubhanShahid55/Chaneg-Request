@@ -15,10 +15,13 @@ SUPABASE_SERVICE_ROLE_KEY=...
 SUPABASE_ANON_KEY=...
 RESEND_API_KEY=...
 REDIS_URL=redis://localhost:6379
+CORS_ORIGINS=https://change-flow-eight.vercel.app
 
 # frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
+
+For Vercel, create the frontend project with `frontend` as its **Root Directory**. Create the backend as a separate project with `backend` as its **Root Directory**. The frontend project should have `NEXT_PUBLIC_API_URL` set to the deployed backend URL, and the backend project should have `CORS_ORIGINS` set to `https://change-flow-eight.vercel.app`.
 
 The frontend expects a Supabase access token in `localStorage` under `changeflow_access_token`. Redis is used for short-lived request/stat caches and safely falls back to direct Supabase reads when unavailable. Activity notifications refresh from the database every five seconds.
 
