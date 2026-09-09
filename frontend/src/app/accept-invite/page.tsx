@@ -12,6 +12,7 @@ export default function AcceptInvitePage() {
     let active = true;
     void consumeAuthCallback().then(async (session) => {
       localStorage.setItem('changeflow_access_token', session.access_token);
+      localStorage.setItem('changeflow_refresh_token', session.refresh_token);
       await validateSession(session.access_token);
       if (active) router.replace('/set-password');
     }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'This invitation link is invalid or expired.'); });

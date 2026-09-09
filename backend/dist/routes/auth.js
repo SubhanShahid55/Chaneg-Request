@@ -3,6 +3,19 @@ import { supabaseAdmin, supabasePublic, createUserClient, presentProfile } from 
 import { removeAvatar, uploadAvatar } from '../services/avatar.js';
 import { config } from '../config.js';
 const router = Router();
+router.post('/refresh', async (req, res) => {
+    const refreshToken = typeof req.body?.refresh_token === 'string' ? req.body.refresh_token : '';
+    if (!refreshToken) {
+        res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
+        return;
+    }
+    const { data, error } = await supabasePublic.auth.refreshSession({ refresh_token: refreshToken });
+    if (error || !data.session) {
+        res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
+        return;
+    }
+    res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+});
 router.post('/forgot-password', async (req, res) => {
     const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
     if (!/^\S+@\S+\.\S+$/.test(email)) {
@@ -27,6 +40,24 @@ router.post('/password', async (req, res) => {
     const { data, error } = await createUserClient(token).auth.updateUser({ password });
     if (error || !data.user) {
         res.status(400).json({ error: 'We could not set your password. Please request a new invitation.' });
+        return;
+    }
+    res.json({ success: true });
+});
+router.post('/update-password', async (req, res) => {
+    const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!token) {
+        res.status(401).json({ error: 'Your password reset session is missing or expired.' });
+        return;
+    }
+    if (password.length < 8) {
+        res.status(400).json({ error: 'Your password must be at least 8 characters.' });
+        return;
+    }
+    const { data, error } = await createUserClient(token).auth.updateUser({ password });
+    if (error || !data.user) {
+        res.status(400).json({ error: 'We could not update your password. Please request a new reset link.' });
         return;
     }
     res.json({ success: true });

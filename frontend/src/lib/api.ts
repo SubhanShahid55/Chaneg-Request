@@ -7,6 +7,15 @@ function accessToken() {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem('changeflow_access_token') || '';
 }
+function refreshToken() {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('changeflow_refresh_token') || '';
+}
+
+function storeTokens(tokens: { access_token: string; refresh_token?: string }) {
+  localStorage.setItem('changeflow_access_token', tokens.access_token);
+  if (tokens.refresh_token) localStorage.setItem('changeflow_refresh_token', tokens.refresh_token);
+}
 
 export interface AuthProfile {
   id: string;
@@ -23,17 +32,27 @@ export async function login(email: string, password: string) {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  localStorage.setItem('changeflow_access_token', response.access_token);
+  storeTokens(response);
   localStorage.setItem('changeflow_profile', JSON.stringify(response.profile));
   return response.profile;
 }
 
 export async function validateSession(token: string) {
-  const response = await fetch(`${API_URL}/auth/session`, {
+  let response = await fetch(`${API_URL}/auth/session`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     cache: 'no-store',
   });
+  if (response.status === 401 && refreshToken()) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      response = await fetch(`${API_URL}/auth/session`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${refreshed}`, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      });
+    }
+  }
   if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || 'Your invitation session is invalid or expired.');
   const result = await response.json() as { profile: AuthProfile };
   localStorage.setItem('changeflow_profile', JSON.stringify(result.profile));
@@ -44,6 +63,13 @@ export async function setInvitationPassword(password: string, name?: string, job
   return apiFetch<{ success: true }>('/auth/password', {
     method: 'POST',
     body: JSON.stringify({ password, name, job_title }),
+  });
+}
+
+export async function updatePassword(password: string) {
+  return apiFetch<{ success: true }>('/auth/update-password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
   });
 }
 
@@ -72,6 +98,7 @@ export async function removeProfileAvatar() {
 export function logout() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('changeflow_access_token');
+    localStorage.removeItem('changeflow_refresh_token');
   localStorage.removeItem('changeflow_profile');
 }
 
@@ -83,6 +110,24 @@ export function storedProfile(): AuthProfile | null {
   } catch {
     return null;
   }
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const currentRefreshToken = refreshToken();
+  if (!currentRefreshToken) return null;
+  const response = await fetch(`${API_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: currentRefreshToken }),
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    logout();
+    return null;
+  }
+  const tokens = await response.json() as { access_token: string; refresh_token: string };
+  storeTokens(tokens);
+  return tokens.access_token;
 }
 
 export interface AdminUser extends AuthProfile {
@@ -117,8 +162,7 @@ export async function removeAdminAvatar(id: string) {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = accessToken();
-  const response = await fetch(`${API_URL}${path}`, {
+  const request = (token: string) => fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -127,6 +171,15 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     },
     cache: 'no-store',
   });
+  let token = accessToken();
+  let response = await request(token);
+  if (response.status === 401 && refreshToken() && path !== '/auth/refresh') {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      token = refreshed;
+      response = await request(token);
+    }
+  }
   if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || `Request failed (${response.status})`);
   return response.json() as Promise<T>;
 }
