@@ -27,6 +27,8 @@ The frontend receives a Supabase access token from `POST /auth/login` and stores
 
 Run migrations `001_initial_schema.sql` and `002_roles_and_profile_storage.sql` in Supabase. The first administrator must be created in Supabase Auth and then assigned `role = 'admin'` in `profiles`; administrators can invite subsequent users from `/admin`. Profile images are uploaded to the private `profile-pictures` bucket through the admin API and are never committed to the repository.
 
+To reset development or staging data while preserving active administrators, manually run `backend/supabase/reset_dev_data.sql` in the Supabase SQL Editor. It removes requests, clients, projects, activities, approvals, and non-admin accounts, and stops if no active admin profile exists. This file is intentionally outside the migrations directory so normal deployments never execute it automatically.
+
 ### 1. Run the Development Server
 ```bash
 npm run dev
