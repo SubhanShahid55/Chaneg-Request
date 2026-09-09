@@ -28,6 +28,18 @@ export async function login(email: string, password: string) {
   return response.profile;
 }
 
+export async function validateSession(token: string) {
+  const response = await fetch(`${API_URL}/auth/session`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || 'Your invitation session is invalid or expired.');
+  const result = await response.json() as { profile: AuthProfile };
+  localStorage.setItem('changeflow_profile', JSON.stringify(result.profile));
+  return result.profile;
+}
+
 export function logout() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('changeflow_access_token');

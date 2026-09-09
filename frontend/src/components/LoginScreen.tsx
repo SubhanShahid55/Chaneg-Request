@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/api';
 
@@ -11,6 +11,11 @@ export function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [invitationExpired, setInvitationExpired] = useState(false);
+
+  useEffect(() => {
+    setInvitationExpired(new URLSearchParams(window.location.search).get('invite') === 'invalid');
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,7 +49,7 @@ export function LoginScreen() {
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">Sign in to ChangeFlow</h1>
         <p className="mt-2 text-sm leading-6 text-[#5d7069]">Manage change requests and keep client work moving.</p>
-        {error && <div role="alert" className="mt-6 rounded-lg border border-[#e9b8b4] bg-[#fff5f4] p-3 text-sm text-[#9d2c27]">{error}</div>}
+        {(error || invitationExpired) && <div role="alert" className="mt-6 rounded-lg border border-[#e9b8b4] bg-[#fff5f4] p-3 text-sm text-[#9d2c27]">{error || 'This invitation link is invalid or expired. Ask an administrator to send a new invitation.'}</div>}
         <form className="mt-7 space-y-5" onSubmit={handleSubmit} noValidate>
           <div>
             <label htmlFor="email" className="mb-2 block text-sm font-medium">Email address</label>
