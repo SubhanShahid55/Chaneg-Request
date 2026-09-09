@@ -32,14 +32,31 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
 
   const invitationData = { name, role, job_title: jobTitle };
   const useBrandedEmail = config.resendApiKey !== 're_your_placeholder_key';
-  const invitation = useBrandedEmail
-    ? await supabaseAdmin.auth.admin.generateLink({ type: 'invite', email, options: { data: invitationData, redirectTo: `${config.appUrl}/login` } })
-    : await supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: invitationData, redirectTo: `${config.appUrl}/login` });
+  let invitation;
+  try {
+    invitation = useBrandedEmail
+      ? await supabaseAdmin.auth.admin.generateLink({ type: 'invite', email, options: { data: invitationData, redirectTo: `${config.appUrl}/login` } })
+      : await supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: invitationData, redirectTo: `${config.appUrl}/login` });
+  } catch (cause) {
+    console.error('Admin invitation provider error:', cause);
+    res.status(502).json({ error: 'The invitation service is unavailable. Check the Supabase Auth email configuration.' });
+    return;
+  }
   const created = invitation.data;
   const createError = invitation.error;
   if (createError || !created.user) {
-    const duplicate = createError?.message.toLowerCase().includes('already');
-    res.status(duplicate ? 409 : 400).json({ error: duplicate ? 'A user with this email already exists.' : 'Unable to register this user.' });
+    const providerMessage = createError?.message || 'Unknown invitation error';
+    const normalizedMessage = providerMessage.toLowerCase();
+    console.error('Admin invitation rejected:', providerMessage);
+    if (normalizedMessage.includes('already') || normalizedMessage.includes('registered')) {
+      res.status(409).json({ error: 'A user with this email already exists. Use a different email address.' });
+      return;
+    }
+    if (normalizedMessage.includes('redirect') || normalizedMessage.includes('url')) {
+      res.status(400).json({ error: `Supabase rejected the invitation redirect URL (${config.appUrl}/login). Add this URL to Supabase Auth redirect URLs.` });
+      return;
+    }
+    res.status(400).json({ error: `Unable to send the invitation: ${providerMessage}` });
     return;
   }
 
