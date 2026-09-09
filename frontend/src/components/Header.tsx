@@ -1,19 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { logout } from '@/lib/api';
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { requests, globalSearchQuery, setGlobalSearchQuery, currentUser, setIsProfileModalOpen, notifications } = useApp();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const isAdmin = currentUser.role.toLowerCase() === 'admin';
+
+  useEffect(() => {
+    document.body.classList.add('changeflow-sidebar-active');
+    return () => document.body.classList.remove('changeflow-sidebar-active');
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
 
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
@@ -24,52 +35,31 @@ export function Header() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-40 bg-[#f8f9ff]/90 backdrop-blur-xl border-b border-[#d3e4fe]/60 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
-        <div className="h-16 w-full max-w-[75rem] mx-auto px-4 md:px-6 flex items-center justify-between gap-4">
+      <aside className="changeflow-sidebar fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-[#d6e5de] bg-white px-4 py-5 shadow-[4px_0_20px_rgba(28,61,49,0.04)] md:flex">
+        <Link href="/dashboard" className="flex items-center gap-2.5 px-2">
+          <img alt="ChangeFlow logo" className="h-9 w-9 object-contain" src="/assets/logo.svg" />
+          <span className="text-lg font-semibold tracking-tight text-[#18322b]">ChangeFlow</span>
+        </Link>
+        <p className="mb-3 mt-10 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7a8d85]">Workspace</p>
+        <nav className="flex flex-col gap-1 text-sm font-medium">
+          {navItems.map((item) => <NavLink key={item.href} item={item} pathname={pathname} />)}
+        </nav>
+        <div className="mt-auto border-t border-[#e4eee9] pt-4">
+          <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#9d2c27] transition hover:bg-[#fff2f0]">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">logout</span> Log out
+          </button>
+        </div>
+      </aside>
+
+      <header className="fixed left-0 right-0 top-0 z-30 border-b border-[#d6e5de] bg-[#f6f8f7]/95 shadow-[0_1px_8px_rgba(28,61,49,0.04)] backdrop-blur-xl md:left-60">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
           {/* Brand Logo & Name */}
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <img
-                alt="ChangeFlow Logo"
-                className="h-8 w-8 object-contain transition-transform group-hover:scale-105"
-                src="/assets/logo.svg"
-              />
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-lg tracking-tight text-[#0b1c30]">
-                  ChangeFlow
-                </span>
-              </div>
-            </Link>
-
-            {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
-              {navItems.map((item) => {
-                const isActive =
-                  item.href === '/'
-                    ? pathname === '/'
-                    : pathname.startsWith(item.href) && item.href !== '/#table';
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`px-3 py-1.5 rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-[#4f46e5] text-white font-medium shadow-sm'
-                        : 'text-[#464555] hover:bg-[#e5eeff] hover:text-[#0b1c30]'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          <Link href="/dashboard" className="text-sm font-semibold text-[#176b57] md:hidden">ChangeFlow</Link>
 
           {/* Right Tools & Profile */}
           <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
             {/* Inline Global Search */}
-            <div className="hidden md:flex items-center relative flex-1 max-w-md ml-4 mr-2">
+            <div className="hidden md:flex relative mx-auto w-full max-w-xl items-center">
               <span className="material-symbols-outlined absolute left-3 text-[#777587] text-[20px]">
                 search
               </span>
@@ -150,6 +140,10 @@ export function Header() {
               </div>
             </button>
 
+            <button type="button" onClick={handleLogout} className="hidden rounded-lg border border-[#e2b9b5] px-3 py-2 text-xs font-semibold text-[#9d2c27] transition hover:bg-[#fff2f0] lg:inline-flex lg:items-center lg:gap-1.5">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">logout</span> Log out
+            </button>
+
             {/* Mobile Hamburger Toggle Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -174,31 +168,16 @@ export function Header() {
               </span>
             </div>
 
-            {navItems.map((item) => {
-              const isActive =
-                item.href === '/'
-                  ? pathname === '/'
-                  : pathname.startsWith(item.href) && item.href !== '/#table';
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 p-3 rounded-xl text-sm font-semibold transition-all ${
-                    isActive
-                      ? 'bg-[#4f46e5] text-white'
-                      : 'text-[#0b1c30] hover:bg-[#eff4ff]'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-lg">{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+            {navItems.map((item) => <NavLink key={item.href} item={item} pathname={pathname} onClick={() => setMobileMenuOpen(false)} />)}
+            <button type="button" onClick={handleLogout} className="mt-2 flex items-center gap-3 rounded-xl border-t border-[#e4eee9] p-3 pt-4 text-sm font-semibold text-[#9d2c27]"> <span className="material-symbols-outlined text-lg" aria-hidden="true">logout</span> Log out</button>
           </div>
         </div>
       )}
     </>
   );
+}
+
+function NavLink({ item, pathname, onClick }: { item: { label: string; href: string; icon: string }; pathname: string; onClick?: () => void }) {
+  const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
+  return <Link href={item.href} onClick={onClick} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${isActive ? 'bg-[#176b57] text-white shadow-sm' : 'text-[#4c665b] hover:bg-[#edf7f2] hover:text-[#18322b]'}`}><span className="material-symbols-outlined text-lg" aria-hidden="true">{item.icon}</span><span>{item.label}</span></Link>;
 }

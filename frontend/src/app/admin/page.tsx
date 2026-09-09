@@ -3,11 +3,13 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminUser, fetchAdminUsers, inviteAdminUser, storedProfile, updateAdminUser } from '@/lib/api';
+import { AppProvider } from '@/lib/store';
+import { Header } from '@/components/Header';
 
 type RoleFilter = 'all' | 'admin' | 'standard';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-export default function AdminPage() {
+function AdminContent() {
   const router = useRouter();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [name, setName] = useState('');
@@ -95,7 +97,7 @@ export default function AdminPage() {
   if (forbidden) return <PermissionState onBack={() => router.push('/dashboard')} />;
 
   return (
-    <main className="min-h-screen bg-[#f6f8f7] px-5 pb-16 pt-8 text-[#18322b] md:px-10 md:pt-12">
+    <><Header /><main className="min-h-screen bg-[#f6f8f7] px-5 pb-16 pt-24 text-[#18322b] md:px-10 md:pt-28">
       <div className="mx-auto max-w-6xl">
         <button onClick={() => router.push('/dashboard')} className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-[#176b57] hover:text-[#0f4f3f]"><span aria-hidden="true">&#8592;</span> Back to dashboard</button>
         <header className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
@@ -113,8 +115,12 @@ export default function AdminPage() {
           {loading ? <div className="space-y-3 p-6">{[1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded-lg bg-[#f0f5f2]" />)}</div> : filteredUsers.length === 0 ? <div className="px-6 py-14 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#edf7f2] text-xl text-[#176b57]">&#128100;</div><h3 className="mt-4 font-semibold">{users.length === 0 ? 'No users yet' : 'No users match these filters'}</h3><p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-[#5d7069]">{users.length === 0 ? 'Send an invitation above to give a teammate access to ChangeFlow.' : 'Try a different name, email, role, or account status.'}</p></div> : <div className="divide-y divide-[#e4eee9]">{filteredUsers.map((user) => <UserRow key={user.id} user={user} isCurrentUser={user.id === storedProfile()?.id} onToggle={toggleUser} />)}</div>}
         </section>
       </div>
-    </main>
+    </main></>
   );
+}
+
+export default function AdminPage() {
+  return <AppProvider><AdminContent /></AppProvider>;
 }
 
 function UserRow({ user, isCurrentUser, onToggle }: { user: AdminUser; isCurrentUser: boolean; onToggle: (user: AdminUser) => void }) { return <div className="flex flex-col gap-4 px-6 py-5 transition hover:bg-[#fbfdfc] sm:flex-row sm:items-center sm:justify-between md:px-7"><div className="flex min-w-0 items-center gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#dcefe8] font-semibold text-[#176b57]">{(user.name || user.email).slice(0, 1).toUpperCase()}</span><div className="min-w-0"><p className="truncate font-medium">{user.name || 'Unnamed user'} {isCurrentUser && <span className="ml-1 text-xs font-normal text-[#6b8178]">(you)</span>}</p><p className="truncate text-sm text-[#5d7069]">{user.email}</p>{user.job_title && <p className="truncate text-xs text-[#176b57]">{user.job_title}</p>}</div></div><div className="flex flex-wrap items-center gap-2 text-sm sm:justify-end"><span className="rounded-full bg-[#eef4f1] px-3 py-1 text-xs font-semibold text-[#36564b]">{user.role === 'admin' ? 'Administrator' : 'Standard user'}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${user.is_active ? 'bg-[#edf7f2] text-[#176b57]' : 'bg-[#fff2f0] text-[#9d2c27]'}`}>{user.is_active ? 'Active' : 'Inactive'}</span><button onClick={() => onToggle(user)} disabled={isCurrentUser} className="rounded-md px-2 py-1 font-semibold text-[#176b57] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:text-[#9aaba4]">{user.is_active ? 'Deactivate' : 'Activate'}</button></div></div>; }
