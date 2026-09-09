@@ -80,6 +80,30 @@ export async function fetchRequests(): Promise<ChangeRequest[]> {
   return response.data.map(mapRequest);
 }
 
+export interface ClientOption {
+  id: string;
+  company_name: string;
+  contact_name: string;
+  contact_email: string;
+  avatar_url: string | null;
+}
+
+export async function fetchClients(): Promise<ClientOption[]> {
+  const response = await apiFetch<{ clients: ClientOption[] }>('/clients');
+  return response.clients;
+}
+
+export async function createRequest(data: {
+  client_id: string;
+  title: string;
+  client_quote?: string;
+  source_channel?: string;
+  priority?: string;
+  project_id?: string;
+}) {
+  return apiFetch<any>('/requests', { method: 'POST', body: JSON.stringify(data) });
+}
+
 export async function fetchRequest(id: string): Promise<ChangeRequest> {
   return mapRequest(await apiFetch<any>(`/requests/${encodeURIComponent(id)}`));
 }

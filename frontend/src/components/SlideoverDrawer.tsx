@@ -3,16 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/lib/store';
 import { IntakeChannel, UrgencyLevel } from '@/lib/types';
+import { fetchClients, type ClientOption } from '@/lib/api';
 
 export function SlideoverDrawer() {
   const { isSlideoverOpen, setIsSlideoverOpen, addRequest } = useApp();
 
   const [step, setStep] = useState(1);
 
-  const [client, setClient] = useState('Acme Corp');
-  const [project, setProject] = useState('Enterprise Billing');
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [client, setClient] = useState('');
+  const [project, setProject] = useState('');
   const [channel, setChannel] = useState<IntakeChannel>('Portal');
-  const [channelSource, setChannelSource] = useState('#acme-client-sync');
+  const [channelSource, setChannelSource] = useState('');
   const [urgency, setUrgency] = useState<UrgencyLevel>('High');
   const [rawQuote, setRawQuote] = useState('');
   const [title, setTitle] = useState('');
@@ -22,6 +24,10 @@ export function SlideoverDrawer() {
   const [targetSprint, setTargetSprint] = useState('Sprint 38 (Q3 Release)');
 
   // Close on ESC
+  useEffect(() => {
+    if (isSlideoverOpen) void fetchClients().then(setClients).catch(() => setClients([]));
+  }, [isSlideoverOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isSlideoverOpen) {
@@ -46,8 +52,8 @@ export function SlideoverDrawer() {
     if (step === 1) {
       setStep(2);
     } else {
-      addRequest({
-        client,
+      void addRequest({
+        databaseId: client,
         project,
         title,
         description,
@@ -113,15 +119,13 @@ export function SlideoverDrawer() {
                   <select
                     value={client}
                     onChange={(e) => setClient(e.target.value)}
+                    required
                     className="w-full h-10 px-3 rounded-lg border border-[#cbd5e1] text-sm text-[#0b1c30] bg-white focus:ring-2 focus:ring-[#4f46e5] focus:outline-none"
                   >
-                    <option value="Acme Corp">Acme Corp</option>
-                    <option value="Veloce Health">Veloce Health</option>
-                    <option value="HyperScale Inc">HyperScale Inc</option>
-                    <option value="Nexus Labs">Nexus Labs</option>
-                    <option value="Luminary Media">Luminary Media</option>
-                    <option value="Strata Logistics">Strata Logistics</option>
-                    <option value="Beacon Retail">Beacon Retail</option>
+                    <option value="">Select a saved client</option>
+                    {clients.map((option) => (
+                      <option key={option.id} value={option.id}>{option.company_name}</option>
+                    ))}
                   </select>
                 </div>
 

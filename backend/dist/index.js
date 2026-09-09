@@ -45,10 +45,10 @@ app.use('/approval', approvalRateLimiter, approvalRoutes);
 // ─── Authenticated routes ───────────────────────────────────
 app.use('/auth', authRoutes); // POST /auth/session is special — it validates the token itself
 app.use('/profile', requireAuth, authRoutes); // PATCH /profile
-app.use('/clients', requireAuth, clientRoutes);
-app.use('/requests', requireAuth, requestRoutes);
-app.use('/stats', requireAuth, statsRoutes);
-app.use('/events', requireAuth, eventsRoutes);
+app.use('/clients', clientRoutes);
+app.use('/requests', requestRoutes);
+app.use('/stats', statsRoutes);
+app.use('/events', eventsRoutes);
 // ─── Global error handler ───────────────────────────────────
 app.use((err, _req, res, _next) => {
     console.error('Unhandled error:', err);

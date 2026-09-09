@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel } from './types';
-import { addRequestNote, fetchActivity, fetchRequests, updateRequestStatus } from './api';
+import { addRequestNote, createRequest, fetchActivity, fetchRequests, updateRequestStatus } from './api';
 
 export function getNextAction(status: RequestStatus): string {
   switch (status) {
@@ -47,7 +47,7 @@ export const DEFAULT_USER: CurrentUser = {
 interface AppContextType {
   requests: ChangeRequest[];
   getRequestById: (id: string) => ChangeRequest | undefined;
-  addRequest: (newReq: Partial<ChangeRequest>) => void;
+  addRequest: (newReq: Partial<ChangeRequest>) => Promise<void>;
   updateRequest: (id: string, updates: Partial<ChangeRequest>) => void;
   updateStatus: (id: string, status: RequestStatus) => void;
   approveRequest: (id: string, approverName: string, confirmationCode?: string) => void;
@@ -125,8 +125,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return requests.find(r => r.id.toLowerCase() === id.toLowerCase());
   };
 
-  const addRequest = (data: Partial<ChangeRequest>): void => {
-    showToast('Request not created', 'Select a saved database client before creating a request.');
+  const addRequest = async (data: Partial<ChangeRequest>): Promise<void> => {
+    if (!data.databaseId || !data.title) {
+      showToast('Request not created', 'Choose a database client and enter a title.');
+      return;
+    }
+    try {
+      await createRequest({
+        client_id: data.databaseId,
+        title: data.title,
+        client_quote: data.rawQuote,
+        source_channel: data.channel,
+        priority: data.urgency === 'Critical' ? 'critical' : data.urgency === 'High' ? 'priority' : 'standard',
+      });
+      setRequests(await fetchRequests());
+      showToast('Request created', `${data.title} was saved to the database.`);
+    } catch (cause) {
+      showToast('Request not created', cause instanceof Error ? cause.message : 'Unable to save request.');
+    }
   };
 
   const updateRequest = (id: string, updates: Partial<ChangeRequest>) => {

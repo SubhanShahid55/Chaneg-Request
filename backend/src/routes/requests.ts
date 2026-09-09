@@ -14,7 +14,8 @@ const router = Router();
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function getActorName(userId: string): Promise<string> {
+async function getActorName(userId?: string): Promise<string> {
+  if (!userId) return 'ChangeFlow';
   const { data } = await supabaseAdmin
     .from('profiles')
     .select('name')
@@ -184,7 +185,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {
-  const userId = req.userId!;
+  const userId = req.userId;
   const body = req.body as CreateRequestBody;
 
   if (!body.client_id || !body.title) {
@@ -218,7 +219,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       source_channel: body.source_channel || null,
       priority: body.priority || 'standard',
       status: 'draft',
-      created_by: userId,
+      created_by: userId || null,
       created_at: now,
       updated_at: now,
     })
@@ -293,7 +294,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
 
 router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void> => {
   const id = req.params.id as string;
-  const userId = req.userId!;
+  const userId = req.userId;
   const body = req.body as UpdateEstimateBody;
 
   const now = new Date().toISOString();
@@ -359,7 +360,7 @@ router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void>
 
 router.post('/:id/send-for-approval', async (req: Request, res: Response): Promise<void> => {
   const id = req.params.id as string;
-  const userId = req.userId!;
+  const userId = req.userId;
 
   try {
     const { data: request, error: reqError } = await supabaseAdmin
@@ -437,7 +438,7 @@ router.post('/:id/send-for-approval', async (req: Request, res: Response): Promi
 
 router.post('/:id/advance', async (req: Request, res: Response): Promise<void> => {
   const id = req.params.id as string;
-  const userId = req.userId!;
+  const userId = req.userId;
 
   try {
     const { data: request, error: reqError } = await supabaseAdmin
@@ -492,7 +493,7 @@ router.post('/:id/advance', async (req: Request, res: Response): Promise<void> =
 
 router.post('/:id/notes', async (req: Request, res: Response): Promise<void> => {
   const id = req.params.id as string;
-  const userId = req.userId!;
+  const userId = req.userId;
   const { content } = req.body as { content: string };
 
   if (!content?.trim()) {
@@ -504,7 +505,7 @@ router.post('/:id/notes', async (req: Request, res: Response): Promise<void> => 
     .from('notes')
     .insert({
       request_id: id,
-      author_id: userId,
+      author_id: userId || null,
       content: content.trim(),
       created_at: new Date().toISOString(),
     })

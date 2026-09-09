@@ -11,6 +11,8 @@ const router = Router();
 // Helpers
 // ---------------------------------------------------------------------------
 async function getActorName(userId) {
+    if (!userId)
+        return 'ChangeFlow';
     const { data } = await supabaseAdmin
         .from('profiles')
         .select('name')
@@ -191,7 +193,7 @@ router.post('/', async (req, res) => {
         source_channel: body.source_channel || null,
         priority: body.priority || 'standard',
         status: 'draft',
-        created_by: userId,
+        created_by: userId || null,
         created_at: now,
         updated_at: now,
     })
@@ -441,7 +443,7 @@ router.post('/:id/notes', async (req, res) => {
         .from('notes')
         .insert({
         request_id: id,
-        author_id: userId,
+        author_id: userId || null,
         content: content.trim(),
         created_at: new Date().toISOString(),
     })
