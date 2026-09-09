@@ -30,6 +30,13 @@ app.use(cors({
 }));
 app.use(express.json());
 // ─── Health check ───────────────────────────────────────────
+app.get('/', (_req, res) => {
+    res.json({
+        name: 'ChangeFlow API',
+        status: 'ok',
+        health: '/health',
+    });
+});
 app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
