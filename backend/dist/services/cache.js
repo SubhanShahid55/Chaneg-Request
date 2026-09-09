@@ -37,4 +37,15 @@ export async function invalidateCache(...keys) {
     if (redis && keys.length)
         await redis.del(keys);
 }
+export async function invalidateCachePattern(pattern) {
+    const redis = await getClient();
+    if (!redis)
+        return;
+    const keys = [];
+    for await (const key of redis.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+        keys.push(...key);
+    }
+    if (keys.length)
+        await redis.del(keys);
+}
 //# sourceMappingURL=cache.js.map

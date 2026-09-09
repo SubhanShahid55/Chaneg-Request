@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel } from './types';
-import { addRequestNote, createRequest, fetchActivity, fetchRequests, updateRequestStatus } from './api';
+import { API_BASE_URL, addRequestNote, createRequest, fetchActivity, fetchRequests, updateRequestStatus } from './api';
 
 export function getNextAction(status: RequestStatus): string {
   switch (status) {
@@ -98,7 +98,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     void load();
     const refresh = window.setInterval(() => void load(), 5000);
-    return () => { active = false; window.clearInterval(refresh); };
+    const events = new EventSource(`${API_BASE_URL}/events/stream`);
+    events.onmessage = () => void load();
+    events.onerror = () => events.close();
+    return () => { active = false; window.clearInterval(refresh); events.close(); };
   }, []);
 
   const updateCurrentUser = (updates: Partial<CurrentUser>) => {

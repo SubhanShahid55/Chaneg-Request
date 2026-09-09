@@ -37,3 +37,13 @@ export async function invalidateCache(...keys: string[]): Promise<void> {
   const redis = await getClient();
   if (redis && keys.length) await redis.del(keys);
 }
+
+export async function invalidateCachePattern(pattern: string): Promise<void> {
+  const redis = await getClient();
+  if (!redis) return;
+  const keys: string[] = [];
+  for await (const key of redis.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+    keys.push(...key);
+  }
+  if (keys.length) await redis.del(keys);
+}

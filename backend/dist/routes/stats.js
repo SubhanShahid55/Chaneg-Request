@@ -59,19 +59,21 @@ router.get('/weekly-velocity', async (_req, res) => {
     const { data, error } = await supabaseAdmin.rpc('weekly_velocity');
     if (error) {
         // Fallback: compute from raw data if the RPC doesn't exist
-        const eightWeeksAgo = new Date();
-        eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
         const { data: requests, error: fetchError } = await supabaseAdmin
             .from('change_requests')
             .select('status, created_at')
-            .gte('created_at', eightWeeksAgo.toISOString());
+            .order('created_at', { ascending: true });
         if (fetchError) {
             res.status(500).json({ error: 'Failed to fetch velocity data' });
             return;
         }
-        // Group by ISO week
+        const recentCutoff = new Date();
+        recentCutoff.setDate(recentCutoff.getDate() - 56);
+        const recentRequests = (requests || []).filter((request) => new Date(request.created_at) >= recentCutoff);
+        const sourceRequests = recentRequests.length > 0 ? recentRequests : (requests || []).slice(-8 * 7);
+        // Group by ISO week, using the latest available real records when the database has no recent activity.
         const weeks = {};
-        for (const r of requests || []) {
+        for (const r of sourceRequests) {
             const d = new Date(r.created_at);
             const weekStart = new Date(d);
             weekStart.setDate(d.getDate() - d.getDay());

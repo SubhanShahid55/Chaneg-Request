@@ -5,7 +5,7 @@ import { sendApprovalEmail } from '../services/email.js';
 import { generateApprovalToken } from '../utils/tokens.js';
 import { buildCsv } from '../utils/csv.js';
 import { config } from '../config.js';
-import { getCached, invalidateCache, setCached } from '../services/cache.js';
+import { getCached, invalidateCache, invalidateCachePattern, setCached } from '../services/cache.js';
 import type { RequestStatus, CreateRequestBody, UpdateEstimateBody } from '../types.js';
 
 const router = Router();
@@ -237,6 +237,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 
   await invalidateCache('stats:summary', 'stats:status-breakdown');
+  await invalidateCachePattern('requests:list:*');
 
   // Insert deliverables
   if (body.deliverables?.length) {
@@ -290,6 +291,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
 
   if (error) { res.status(500).json({ error: error.message }); return; }
   await invalidateCache('stats:summary', 'stats:status-breakdown');
+  await invalidateCachePattern('requests:list:*');
   res.json(data);
 });
 
@@ -324,6 +326,7 @@ router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void>
   }
 
   await invalidateCache('stats:summary', 'stats:status-breakdown');
+  await invalidateCachePattern('requests:list:*');
 
   // Replace deliverables
   await supabaseAdmin.from('deliverables').delete().eq('request_id', id);
@@ -410,6 +413,7 @@ router.post('/:id/send-for-approval', async (req: Request, res: Response): Promi
       .eq('id', id);
 
     await invalidateCache('stats:summary', 'stats:status-breakdown');
+    await invalidateCachePattern('requests:list:*');
 
     const actorName = await getActorName(userId);
     await logActivity(id, 'sent_for_approval', {
@@ -481,6 +485,7 @@ router.post('/:id/advance', async (req: Request, res: Response): Promise<void> =
     if (error) { res.status(500).json({ error: error.message }); return; }
 
     await invalidateCache('stats:summary', 'stats:status-breakdown');
+    await invalidateCachePattern('requests:list:*');
 
     const actorName = await getActorName(userId);
     await logActivity(id, eventType, { from: request.status, to: targetStatus }, actorName);

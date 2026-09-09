@@ -26,7 +26,14 @@ function DashboardContent() {
   const [velocityData, setVelocityData] = useState<Array<{ week: string; total: number; approved: number; pending: number }>>([]);
 
   useEffect(() => {
-    fetchWeeklyVelocity().then(({ weeks }) => setVelocityData(weeks.map((week) => ({ ...week, total: week.approved + week.pending })))).catch(() => setVelocityData([]));
+    const loadVelocity = () => {
+      fetchWeeklyVelocity()
+        .then(({ weeks }) => setVelocityData(weeks.map((week) => ({ ...week, total: week.approved + week.pending }))))
+        .catch(() => setVelocityData([]));
+    };
+    loadVelocity();
+    const refresh = window.setInterval(loadVelocity, 5000);
+    return () => window.clearInterval(refresh);
   }, [requests.length]);
 
   const filteredRequests = requests.filter((request) => {

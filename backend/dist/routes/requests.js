@@ -5,7 +5,7 @@ import { sendApprovalEmail } from '../services/email.js';
 import { generateApprovalToken } from '../utils/tokens.js';
 import { buildCsv } from '../utils/csv.js';
 import { config } from '../config.js';
-import { getCached, invalidateCache, setCached } from '../services/cache.js';
+import { getCached, invalidateCache, invalidateCachePattern, setCached } from '../services/cache.js';
 const router = Router();
 // ---------------------------------------------------------------------------
 // Helpers
@@ -209,6 +209,7 @@ router.post('/', async (req, res) => {
         return;
     }
     await invalidateCache('stats:summary', 'stats:status-breakdown');
+    await invalidateCachePattern('requests:list:*');
     // Insert deliverables
     if (body.deliverables?.length) {
         await supabaseAdmin.from('deliverables').insert(body.deliverables.map((d) => ({
@@ -256,6 +257,7 @@ router.patch('/:id', async (req, res) => {
         return;
     }
     await invalidateCache('stats:summary', 'stats:status-breakdown');
+    await invalidateCachePattern('requests:list:*');
     res.json(data);
 });
 // ---------------------------------------------------------------------------
@@ -284,6 +286,7 @@ router.patch('/:id/estimate', async (req, res) => {
         return;
     }
     await invalidateCache('stats:summary', 'stats:status-breakdown');
+    await invalidateCachePattern('requests:list:*');
     // Replace deliverables
     await supabaseAdmin.from('deliverables').delete().eq('request_id', id);
     if (body.deliverables?.length) {
@@ -356,6 +359,7 @@ router.post('/:id/send-for-approval', async (req, res) => {
             .update({ status: 'awaiting_approval', updated_at: now })
             .eq('id', id);
         await invalidateCache('stats:summary', 'stats:status-breakdown');
+        await invalidateCachePattern('requests:list:*');
         const actorName = await getActorName(userId);
         await logActivity(id, 'sent_for_approval', {
             client_name: client.company_name,
@@ -421,6 +425,7 @@ router.post('/:id/advance', async (req, res) => {
             return;
         }
         await invalidateCache('stats:summary', 'stats:status-breakdown');
+        await invalidateCachePattern('requests:list:*');
         const actorName = await getActorName(userId);
         await logActivity(id, eventType, { from: request.status, to: targetStatus }, actorName);
         res.json(updated);
