@@ -13,12 +13,13 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
+  const isAdmin = currentUser.role.toLowerCase() === 'admin';
 
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     { label: 'Requests', href: '/requests', icon: 'list_alt' },
     { label: 'Reports', href: '/reports', icon: 'bar_chart' },
-    ...(currentUser.role === 'admin' ? [{ label: 'Admin', href: '/admin', icon: 'manage_accounts' }] : []),
+    ...(isAdmin ? [{ label: 'Admin', href: '/admin', icon: 'manage_accounts' }] : []),
   ];
 
   return (

@@ -73,7 +73,14 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-[#f6f8f7] px-5 pb-16 pt-10 text-[#18322b] md:px-10">
-      <div className="mx-auto max-w-6xl">
+    const [role, setRole] = useState<'admin' | 'standard'>('standard');
+    const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [forbidden, setForbidden] = useState(false);
         <button onClick={() => router.push('/dashboard')} className="mb-7 text-sm font-semibold text-[#176b57]">Back to dashboard</button>
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div><p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#176b57]">Admin</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">User management</h1><p className="mt-2 max-w-xl text-sm leading-6 text-[#5d7069]">Register people who need access to ChangeFlow and manage whether their account is active.</p></div>
