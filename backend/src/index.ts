@@ -16,6 +16,10 @@ const app = express();
 const allowedOrigins = new Set([
   config.appUrl.replace(/\/$/, ''),
   'https://change-flow-eight.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
   ...config.corsOrigins,
 ]);
 
@@ -27,7 +31,7 @@ app.use(cors({
       callback(null, true);
       return;
     }
-    callback(new Error('Origin is not allowed by CORS'));
+    callback(null, false);
   },
   credentials: true,
 }));
