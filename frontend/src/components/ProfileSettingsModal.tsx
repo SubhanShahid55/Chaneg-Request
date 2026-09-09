@@ -53,12 +53,7 @@ export function ProfileSettingsModal() {
 
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
           <div className="flex flex-col items-center mb-2">
-            <img 
-              src={avatarUrl} 
-              alt="Avatar Preview" 
-              className="w-20 h-20 rounded-full object-cover ring-4 ring-[#eef2ff] mb-4"
-              onError={(e) => { e.currentTarget.src = 'https://ui-avatars.com/api/?name=User&background=random' }}
-            />
+            {avatarUrl ? <img src={avatarUrl} alt="Avatar Preview" className="w-20 h-20 rounded-full object-cover ring-4 ring-[#eef2ff] mb-4" /> : <span className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-[#dcefe8] text-2xl font-semibold text-[#176b57]">{(name || 'U').slice(0, 1).toUpperCase()}</span>}
             <div className="flex gap-2">
               {presetAvatars.map((url, idx) => (
                 <button
@@ -67,14 +62,14 @@ export function ProfileSettingsModal() {
                   onClick={() => setAvatarUrl(url)}
                   className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all ${avatarUrl === url ? 'border-[#4f46e5] scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
                 >
-                  <img src={url} alt="preset" className="w-full h-full object-cover" />
+                  {url ? <img src={url} alt="Preset profile" className="w-full h-full object-cover" /> : <span className="flex h-full w-full items-center justify-center bg-[#dcefe8] text-xs font-semibold text-[#176b57]">None</span>}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#0b1c30] mb-1.5">Avatar Image URL</label>
+            <label className="block text-sm font-medium text-[#0b1c30] mb-1.5">Profile picture URL</label>
             <input
               type="text"
               value={avatarUrl}

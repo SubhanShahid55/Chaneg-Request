@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'node:crypto';
 import { supabaseAdmin } from '../supabase.js';
+import { config } from '../config.js';
+import { sendInvitationEmail } from '../services/email.js';
 
 const router = Router();
 const allowedImageTypes = new Map([
@@ -22,14 +24,19 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
   const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const role = req.body?.role === 'admin' ? 'admin' : 'standard';
+  const jobTitle = typeof req.body?.job_title === 'string' ? req.body.job_title.trim().slice(0, 100) : null;
   if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) {
     res.status(400).json({ error: 'Enter a full name and a valid email address.' });
     return;
   }
 
-  const { data: created, error: createError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    data: { name, role },
-  });
+  const invitationData = { name, role, job_title: jobTitle };
+  const useBrandedEmail = config.resendApiKey !== 're_your_placeholder_key';
+  const invitation = useBrandedEmail
+    ? await supabaseAdmin.auth.admin.generateLink({ type: 'invite', email, options: { data: invitationData, redirectTo: `${config.appUrl}/login` } })
+    : await supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: invitationData, redirectTo: `${config.appUrl}/login` });
+  const created = invitation.data;
+  const createError = invitation.error;
   if (createError || !created.user) {
     const duplicate = createError?.message.toLowerCase().includes('already');
     res.status(duplicate ? 409 : 400).json({ error: duplicate ? 'A user with this email already exists.' : 'Unable to register this user.' });
@@ -43,11 +50,26 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
     role,
     is_active: true,
     avatar_url: null,
+    job_title: jobTitle,
   }).select().single();
   if (profileError) {
     await supabaseAdmin.auth.admin.deleteUser(created.user.id);
     res.status(500).json({ error: 'User registration could not be completed.' });
     return;
+  }
+  const invitationLink = useBrandedEmail
+    ? (created as { properties?: { action_link?: string } }).properties?.action_link
+    : undefined;
+  if (invitationLink) {
+    try {
+      await sendInvitationEmail(email, name, jobTitle, invitationLink);
+    } catch (emailError) {
+      await supabaseAdmin.from('profiles').delete().eq('id', created.user.id);
+      await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      console.error('Invitation email failed:', emailError);
+      res.status(502).json({ error: 'The invitation was not sent. Check the email service configuration and try again.' });
+      return;
+    }
   }
   res.status(201).json({ user: profile });
 });

@@ -3,6 +3,10 @@ import { config } from '../config.js';
 
 const resend = new Resend(config.resendApiKey);
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] || character);
+}
+
 /**
  * Send the approval link email to the client contact.
  */
@@ -57,5 +61,21 @@ export async function sendTeamNotification(
         <p style="color: #999; font-size: 12px;">ChangeFlow Notification</p>
       </div>
     `,
+  });
+}
+
+export async function sendInvitationEmail(
+  recipientEmail: string,
+  recipientName: string,
+  jobTitle: string | null,
+  invitationUrl: string,
+): Promise<void> {
+  const safeName = escapeHtml(recipientName);
+  const safeTitle = jobTitle ? escapeHtml(jobTitle) : '';
+  await resend.emails.send({
+    from: config.fromEmail,
+    to: recipientEmail,
+    subject: 'You have been invited to ChangeFlow',
+    html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#18322b"><div style="padding:28px 0;border-bottom:1px solid #dbe7e1"><strong style="font-size:24px;color:#176b57">ChangeFlow</strong></div><div style="padding:32px 0"><p style="font-size:16px">Hello ${safeName},</p><h1 style="font-size:28px;margin:12px 0">Your ChangeFlow workspace is ready</h1><p style="line-height:1.6;color:#5d7069">You have been invited${safeTitle ? ` as ${safeTitle}` : ''} to collaborate on change requests and client work.</p><a href="${invitationUrl}" style="display:inline-block;margin:20px 0;padding:13px 20px;border-radius:8px;background:#176b57;color:#fff;text-decoration:none;font-weight:bold">Accept invitation</a><p style="font-size:13px;color:#6b8178">This secure invitation link is for you only. If you were not expecting this email, you can ignore it.</p></div><div style="border-top:1px solid #dbe7e1;padding:18px 0;color:#6b8178;font-size:12px">ChangeFlow account invitation</div></div>`,
   });
 }

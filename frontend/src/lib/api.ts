@@ -15,6 +15,7 @@ export interface AuthProfile {
   role: 'admin' | 'standard';
   is_active: boolean;
   avatar_url: string | null;
+  job_title?: string | null;
 }
 
 export async function login(email: string, password: string) {
@@ -52,7 +53,7 @@ export async function fetchAdminUsers() {
   return apiFetch<{ users: AdminUser[] }>('/admin/users');
 }
 
-export async function inviteAdminUser(data: { name: string; email: string; role: 'admin' | 'standard' }) {
+export async function inviteAdminUser(data: { name: string; email: string; role: 'admin' | 'standard'; job_title?: string }) {
   return apiFetch<{ user: AdminUser }>('/admin/users', { method: 'POST', body: JSON.stringify(data) });
 }
 
