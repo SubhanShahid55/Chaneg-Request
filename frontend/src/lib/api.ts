@@ -255,6 +255,10 @@ export async function fetchClients(): Promise<ClientOption[]> {
   return response.clients;
 }
 
+export async function createClient(data: { company_name: string; contact_name: string; contact_email: string }) {
+  return apiFetch<{ client: ClientOption }>('/clients', { method: 'POST', body: JSON.stringify(data) });
+}
+
 export async function createRequest(data: {
   client_id: string;
   title: string;

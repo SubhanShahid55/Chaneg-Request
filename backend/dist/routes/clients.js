@@ -1,6 +1,38 @@
 import { Router } from 'express';
 import { supabaseAdmin } from '../supabase.js';
 const router = Router();
+router.post('/', async (req, res) => {
+    if (req.userRole !== 'admin') {
+        res.status(403).json({ error: 'Only administrators can add clients.' });
+        return;
+    }
+    const companyName = typeof req.body?.company_name === 'string' ? req.body.company_name.trim() : '';
+    const contactName = typeof req.body?.contact_name === 'string' ? req.body.contact_name.trim() : '';
+    const contactEmail = typeof req.body?.contact_email === 'string' ? req.body.contact_email.trim().toLowerCase() : '';
+    if (!companyName || !contactName || !/^\S+@\S+\.\S+$/.test(contactEmail)) {
+        res.status(400).json({ error: 'Enter a company name, contact name, and valid contact email.' });
+        return;
+    }
+    const { data: existing } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .ilike('company_name', companyName)
+        .maybeSingle();
+    if (existing) {
+        res.status(409).json({ error: 'A client with this company name already exists.' });
+        return;
+    }
+    const { data, error } = await supabaseAdmin.from('clients').insert({
+        company_name: companyName,
+        contact_name: contactName,
+        contact_email: contactEmail,
+    }).select('id, company_name, contact_name, contact_email, avatar_url').single();
+    if (error) {
+        res.status(500).json({ error: 'Unable to add this client.' });
+        return;
+    }
+    res.status(201).json({ client: data });
+});
 /**
  * GET /clients
  * Search clients by company name for autocomplete.

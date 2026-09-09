@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AdminUser, fetchAdminUsers, inviteAdminUser, removeAdminAvatar, resendAdminInvite, storedProfile, updateAdminUser, uploadAdminAvatar } from '@/lib/api';
+import { AdminUser, createClient, fetchAdminUsers, inviteAdminUser, removeAdminAvatar, resendAdminInvite, storedProfile, updateAdminUser, uploadAdminAvatar } from '@/lib/api';
 import { AppProvider } from '@/lib/store';
 import { Header } from '@/components/Header';
 import { AvatarUpload } from '@/components/AvatarUpload';
@@ -17,6 +17,9 @@ function AdminContent() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'admin' | 'standard'>('standard');
   const [jobTitle, setJobTitle] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -24,6 +27,7 @@ function AdminContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [clientSubmitting, setClientSubmitting] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 
   async function loadUsers() {
@@ -70,6 +74,24 @@ function AdminContent() {
       setError(cause instanceof Error ? cause.message : 'Unable to register this user.');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleClientSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    setClientSubmitting(true);
+    try {
+      await createClient({ company_name: companyName.trim(), contact_name: contactName.trim(), contact_email: contactEmail.trim().toLowerCase() });
+      setMessage(`Client ${companyName.trim()} added successfully.`);
+      setCompanyName('');
+      setContactName('');
+      setContactEmail('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to add this client.');
+    } finally {
+      setClientSubmitting(false);
     }
   }
 
@@ -124,6 +146,15 @@ function AdminContent() {
         <section className="mt-8 rounded-2xl border border-[#d3e4fe] bg-white p-6 shadow-[0_8px_24px_rgba(30,58,95,0.05)] md:p-7">
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><h2 className="text-lg font-semibold">Register a new user</h2><p className="mt-1 text-sm leading-6 text-[#464555]">They will receive an invitation to set their own password. Passwords are never shown to administrators.</p></div><span className="rounded-full bg-[#eff4ff] px-3 py-1 text-xs font-semibold text-[#3525cd]">Invitation only</span></div>
           <form onSubmit={handleSubmit} className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_190px_auto] lg:items-end"><Field label="Full name"><input required value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Jordan Lee" className="field" /></Field><Field label="Email address"><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="field" /></Field><Field label="Role / title"><input value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} placeholder="e.g. Project manager" className="field" /></Field><Field label="Access level"><select value={role} onChange={(event) => setRole(event.target.value as 'admin' | 'standard')} className="field"><option value="standard">Standard user</option><option value="admin">Administrator</option></select></Field><button type="submit" disabled={submitting} className="rounded-lg bg-[#4f46e5] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#3525cd] disabled:cursor-not-allowed disabled:opacity-60">{submitting ? 'Sending invitation...' : 'Send invitation'}</button></form>
+        </section>
+        <section className="mt-6 rounded-2xl border border-[#d6e5de] bg-white p-6 shadow-[0_8px_24px_rgba(28,61,49,0.05)] md:p-7">
+          <div><h2 className="text-lg font-semibold">Add a client</h2><p className="mt-1 text-sm leading-6 text-[#5d7069]">Create a client record so change requests can be linked to the right company.</p></div>
+          <form onSubmit={handleClientSubmit} className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+            <Field label="Company name"><input required value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Northstar Studio" className="field" /></Field>
+            <Field label="Contact name"><input required value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="e.g. Alex Morgan" className="field" /></Field>
+            <Field label="Contact email"><input required type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} placeholder="alex@company.com" className="field" /></Field>
+            <button type="submit" disabled={clientSubmitting} className="rounded-lg bg-[#176b57] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0f5746] disabled:cursor-not-allowed disabled:opacity-60">{clientSubmitting ? 'Adding client...' : 'Add client'}</button>
+          </form>
         </section>
         <section className="mt-6 overflow-hidden rounded-2xl border border-[#d6e5de] bg-white shadow-[0_8px_24px_rgba(28,61,49,0.05)]">
           <div className="border-b border-[#e4eee9] px-6 py-5 md:px-7"><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center"><div><h2 className="text-lg font-semibold">People with access</h2><p className="mt-1 text-sm text-[#5d7069]">{loading ? 'Loading accounts...' : `${filteredUsers.length} of ${users.length} users shown`}</p></div><div className="flex flex-col gap-3 sm:flex-row"><label><span className="sr-only">Search users</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" className="field min-w-60" /></label><label><span className="sr-only">Filter by role</span><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)} className="field"><option value="all">All roles</option><option value="admin">Administrators</option><option value="standard">Standard users</option></select></label><label><span className="sr-only">Filter by status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="field"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label></div></div></div>
