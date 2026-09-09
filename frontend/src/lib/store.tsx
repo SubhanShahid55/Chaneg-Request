@@ -33,6 +33,7 @@ export function getStatusLabel(status: RequestStatus): string {
 }
 
 interface CurrentUser {
+  id: string;
   name: string;
   role: string;
   jobTitle: string;
@@ -40,6 +41,7 @@ interface CurrentUser {
 }
 
 export const DEFAULT_USER: CurrentUser = {
+  id: '',
   name: '',
   role: '',
   jobTitle: '',
@@ -80,7 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<{ title: string; subtitle?: string; visible: boolean } | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
     const profile = storedProfile();
-    return profile ? { name: profile.name, role: profile.role, jobTitle: profile.job_title || '', avatarUrl: profile.avatar_url || '' } : DEFAULT_USER;
+    return profile ? { id: profile.id, name: profile.name, role: profile.role, jobTitle: profile.job_title || '', avatarUrl: profile.avatar_url || '' } : DEFAULT_USER;
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
