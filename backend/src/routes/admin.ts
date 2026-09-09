@@ -12,7 +12,7 @@ const allowedImageTypes = new Map([
 ]);
 
 router.get('/users', async (_req: Request, res: Response): Promise<void> => {
-  const { data, error } = await supabaseAdmin.from('profiles').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabaseAdmin.from('profiles').select('*').order('name', { ascending: true });
   if (error) {
     res.status(500).json({ error: 'Unable to load users.' });
     return;
