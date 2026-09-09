@@ -38,7 +38,7 @@ export function Header() {
       <aside className="changeflow-sidebar fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-[#d6e5de] bg-white px-4 py-5 shadow-[4px_0_20px_rgba(28,61,49,0.04)] md:flex">
         <Link href="/dashboard" className="flex items-center gap-2.5 px-2">
           <img alt="ChangeFlow logo" className="h-9 w-9 object-contain" src="/assets/logo.svg" />
-          <span className="text-lg font-semibold tracking-tight text-[#18322b]">ChangeFlow</span>
+          <span className="text-lg font-semibold tracking-tight text-[#0b1c30]">ChangeFlow</span>
         </Link>
         <p className="mb-3 mt-10 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7a8d85]">Workspace</p>
         <nav className="flex flex-col gap-1 text-sm font-medium">
@@ -54,7 +54,7 @@ export function Header() {
       <header className="fixed left-0 right-0 top-0 z-30 border-b border-[#d6e5de] bg-[#f6f8f7]/95 shadow-[0_1px_8px_rgba(28,61,49,0.04)] backdrop-blur-xl md:left-60">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
           {/* Brand Logo & Name */}
-          <Link href="/dashboard" className="text-sm font-semibold text-[#176b57] md:hidden">ChangeFlow</Link>
+          <Link href="/dashboard" className="text-sm font-semibold text-[#4f46e5] md:hidden">ChangeFlow</Link>
 
           {/* Right Tools & Profile */}
           <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
@@ -129,7 +129,7 @@ export function Header() {
               className="flex items-center gap-2 pl-2 border-l border-[#d3e4fe]/80 text-left hover:opacity-80 transition-opacity"
               title="Edit Profile"
             >
-              {currentUser?.avatarUrl ? <img alt={`${currentUser.name} profile`} className="w-8 h-8 rounded-full object-cover ring-1 ring-[#4f46e5]/30" src={currentUser.avatarUrl} /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dcefe8] text-xs font-bold text-[#176b57]">{(currentUser?.name || 'U').slice(0, 1).toUpperCase()}</span>}
+              {currentUser?.avatarUrl ? <img alt={`${currentUser.name} profile`} className="w-8 h-8 rounded-full object-cover ring-1 ring-[#4f46e5]/30" src={currentUser.avatarUrl} /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e5eeff] text-xs font-bold text-[#3525cd]">{(currentUser?.name || 'U').slice(0, 1).toUpperCase()}</span>}
               <div className="hidden lg:flex flex-col">
                 <span className="text-xs font-semibold text-[#0b1c30] leading-none">
                   {currentUser?.name || 'Your profile'}
@@ -179,5 +179,5 @@ export function Header() {
 
 function NavLink({ item, pathname, onClick }: { item: { label: string; href: string; icon: string }; pathname: string; onClick?: () => void }) {
   const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
-  return <Link href={item.href} onClick={onClick} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${isActive ? 'bg-[#176b57] text-white shadow-sm' : 'text-[#4c665b] hover:bg-[#edf7f2] hover:text-[#18322b]'}`}><span className="material-symbols-outlined text-lg" aria-hidden="true">{item.icon}</span><span>{item.label}</span></Link>;
+  return <Link href={item.href} onClick={onClick} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${isActive ? 'bg-[#4f46e5] text-white shadow-sm' : 'text-[#464555] hover:bg-[#eff4ff] hover:text-[#0b1c30]'}`}><span className="material-symbols-outlined text-lg" aria-hidden="true">{item.icon}</span><span>{item.label}</span></Link>;
 }
