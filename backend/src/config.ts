@@ -16,5 +16,6 @@ export const config = {
   fromEmail: process.env.FROM_EMAIL || 'noreply@momentumstudio.dev',
   teamEmail: process.env.TEAM_EMAIL || 'sarah@momentumstudio.dev',
   appUrl: process.env.APP_URL || 'http://localhost:3000',
+  redisUrl: process.env.REDIS_URL || '',
   port: parseInt(process.env.PORT || '4000', 10),
 } as const;

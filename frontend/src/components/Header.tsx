@@ -7,7 +7,7 @@ import { useApp } from '@/lib/store';
 
 export function Header() {
   const pathname = usePathname();
-  const { requests, globalSearchQuery, setGlobalSearchQuery, currentUser, setIsProfileModalOpen } = useApp();
+  const { requests, globalSearchQuery, setGlobalSearchQuery, currentUser, setIsProfileModalOpen, notifications } = useApp();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -15,7 +15,6 @@ export function Header() {
 
   const navItems = [
     { label: 'Dashboard', href: '/', icon: 'dashboard' },
-    { label: 'Requests', href: '/#table', icon: 'list_alt' },
     { label: 'Requests', href: '/requests', icon: 'list_alt' },
     { label: 'Reports', href: '/reports', icon: 'bar_chart' },
   ];
@@ -115,22 +114,17 @@ export function Header() {
                       Recent Scope Alerts
                     </span>
                     <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[#e2dfff] text-[#3323cc] font-medium">
-                      {pendingCount} Pending
+                      {notifications.length} New
                     </span>
                   </div>
                   <div className="py-2 flex flex-col gap-2 max-h-60 overflow-y-auto text-xs">
-                    <div className="p-2 rounded-lg bg-[#f8f9ff] border border-[#e2e8f0]/60">
-                      <span className="font-medium text-[#0b1c30]">CR-1042 Acme Corp</span>
-                      <p className="text-[#464555] text-[11px] mt-0.5">
-                        Client viewing tokenized estimate for Enterprise Tiered Pricing ($3,600).
-                      </p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-[#f8f9ff] border border-[#e2e8f0]/60">
-                      <span className="font-medium text-[#0b1c30]">CR-1043 Veloce Health</span>
-                      <p className="text-[#047857] text-[11px] mt-0.5 font-medium">
-                        ✓ Scope Authorized by Dr. Elena Rostova ($4,800).
-                      </p>
-                    </div>
+                    {notifications.length === 0 && <p className="p-2 text-[#777587]">No recent activity.</p>}
+                    {notifications.map((notification) => (
+                      <div key={notification.id} className="p-2 rounded-lg bg-[#f8f9ff] border border-[#e2e8f0]/60">
+                        <span className="font-medium text-[#0b1c30]">{notification.event_type.replaceAll('_', ' ')}</span>
+                        <p className="text-[#464555] text-[11px] mt-0.5">{notification.actor_name || 'System'} · {new Date(notification.created_at).toLocaleString()}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

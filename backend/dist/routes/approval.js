@@ -8,11 +8,23 @@ const router = Router();
  * Helper: look up an approval link by token and return its state.
  */
 async function resolveToken(token) {
-    const { data: link, error } = await supabaseAdmin
+    let { data: link, error } = await supabaseAdmin
         .from('approval_links')
         .select('*')
         .eq('token', token)
         .single();
+    if (error || !link) {
+        const { data: request } = await supabaseAdmin
+            .from('change_requests')
+            .select('id')
+            .eq('reference_code', token)
+            .single();
+        if (request) {
+            const result = await supabaseAdmin.from('approval_links').select('*').eq('request_id', request.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+            link = result.data;
+            error = result.error;
+        }
+    }
     if (error || !link) {
         return { state: 'not_found' };
     }

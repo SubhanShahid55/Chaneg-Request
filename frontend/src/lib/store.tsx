@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel } from './types';
-import { INITIAL_CHANGE_REQUESTS, DEFAULT_LEAD } from './mock-data';
+import { addRequestNote, fetchActivity, fetchRequests, updateRequestStatus } from './api';
 
 export function getNextAction(status: RequestStatus): string {
   switch (status) {
@@ -39,15 +39,15 @@ interface CurrentUser {
 }
 
 export const DEFAULT_USER: CurrentUser = {
-  name: 'Sarah Chen',
-  role: 'Lead PM / Partner',
-  avatarUrl: '/assets/04_headshot_pm.png',
+  name: '',
+  role: '',
+  avatarUrl: '',
 };
 
 interface AppContextType {
   requests: ChangeRequest[];
   getRequestById: (id: string) => ChangeRequest | undefined;
-  addRequest: (newReq: Partial<ChangeRequest>) => ChangeRequest;
+  addRequest: (newReq: Partial<ChangeRequest>) => void;
   updateRequest: (id: string, updates: Partial<ChangeRequest>) => void;
   updateStatus: (id: string, status: RequestStatus) => void;
   approveRequest: (id: string, approverName: string, confirmationCode?: string) => void;
@@ -63,53 +63,52 @@ interface AppContextType {
   hideToast: () => void;
   currentUser: CurrentUser;
   updateCurrentUser: (user: Partial<CurrentUser>) => void;
+  isLoading: boolean;
+  error: string | null;
+  notifications: Array<{ id: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [requests, setRequests] = useState<ChangeRequest[]>(INITIAL_CHANGE_REQUESTS);
+  const [requests, setRequests] = useState<ChangeRequest[]>([]);
   const [isSlideoverOpen, setIsSlideoverOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [toast, setToast] = useState<{ title: string; subtitle?: string; visible: boolean } | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser>(DEFAULT_USER);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Array<{ id: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }>>([]);
 
-  // Load from localStorage if present
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('changeflow_requests');
-      if (saved) {
-        setRequests(JSON.parse(saved));
+    let active = true;
+    const load = async () => {
+      try {
+        const [loadedRequests, activity] = await Promise.all([fetchRequests(), fetchActivity()]);
+        if (!active) return;
+        setRequests(loadedRequests);
+        setNotifications(activity.events);
+        setError(null);
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : 'Unable to load live data');
+      } finally {
+        if (active) setIsLoading(false);
       }
-      const savedReqs = localStorage.getItem('changeflow_requests');
-      if (savedReqs) setRequests(JSON.parse(savedReqs));
-      
-      const savedUser = localStorage.getItem('changeflow_user');
-      if (savedUser) setCurrentUser(JSON.parse(savedUser));
-    } catch (e) {
-      console.warn('Failed to load local changeflow requests', e);
-      console.warn('Failed to load local changeflow data', e);
-    }
+    };
+    void load();
+    const refresh = window.setInterval(() => void load(), 5000);
+    return () => { active = false; window.clearInterval(refresh); };
   }, []);
 
   const updateCurrentUser = (updates: Partial<CurrentUser>) => {
     const updated = { ...currentUser, ...updates };
     setCurrentUser(updated);
-    try {
-      localStorage.setItem('changeflow_user', JSON.stringify(updated));
-    } catch (e) {}
+    // Profile persistence is handled by the authenticated profile API.
   };
 
   // Save changes
-  const saveRequests = (newReqs: ChangeRequest[]) => {
-    setRequests(newReqs);
-    try {
-      localStorage.setItem('changeflow_requests', JSON.stringify(newReqs));
-    } catch (e) {
-      console.warn('Failed to persist changeflow requests', e);
-    }
-  };
+  const saveRequests = (newReqs: ChangeRequest[]) => setRequests(newReqs);
 
   const showToast = (title: string, subtitle?: string) => {
     setToast({ title, subtitle, visible: true });
@@ -126,125 +125,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return requests.find(r => r.id.toLowerCase() === id.toLowerCase());
   };
 
-  const addRequest = (data: Partial<ChangeRequest>): ChangeRequest => {
-    const nextIdNumber = Math.max(...requests.map(r => parseInt(r.id.replace('CR-', ''), 10) || 1040), 1051) + 1;
-    const newId = `CR-${nextIdNumber}`;
-    const hours = data.estimatedHours || 16;
-    const rate = data.hourlyRate || 150;
-    const cost = data.estimatedCost || hours * rate;
-    const now = new Date().toISOString();
-    const status: RequestStatus = 'draft';
-
-    const newReq: ChangeRequest = {
-      id: newId,
-      client: data.client || 'New Enterprise Client',
-      project: data.project || 'Product Roadmap',
-      title: data.title || 'New Change Request',
-      description: data.description || 'Client submitted request for feature expansion.',
-      rawQuote: data.rawQuote || `"We need this capability added before our next release milestone."`,
-      channel: 'Portal',
-      channelSource: data.channelSource || 'Client Portal',
-      urgency: (data.urgency as UrgencyLevel) || 'Medium',
-      status,
-      estimatedHours: hours,
-      hourlyRate: rate,
-      estimatedCost: cost,
-      targetSprint: data.targetSprint || 'Q3 Release — ~5 days',
-      targetTurnaroundDays: data.targetTurnaroundDays || 5,
-      createdAt: now,
-      updatedAt: now,
-      nextAction: getNextAction(status),
-      clientContact: data.clientContact || {
-        name: 'Alex Mercer',
-        email: 'alex@client.io',
-        role: 'Client Product Lead',
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      },
-      assignedLead: DEFAULT_LEAD,
-      deliverables: data.deliverables && data.deliverables.length > 0 ? data.deliverables : [
-        {
-          id: `del-${Date.now()}-1`,
-          title: 'Core Implementation & Architectural Scaffold',
-          description: 'Modular feature code, components, and backend endpoints.',
-          hours: Math.round(hours * 0.6),
-          category: 'Frontend',
-        },
-        {
-          id: `del-${Date.now()}-2`,
-          title: 'Integration, QA & End-to-End Verification',
-          description: 'Automated test suites, manual verification, and staging deployment.',
-          hours: Math.round(hours * 0.4),
-          category: 'QA & DevOps',
-        },
-      ],
-      exclusions: data.exclusions || [
-        'Out-of-scope legacy systems migration',
-        'Third-party external licensing fees',
-      ],
-      approvalToken: `tok_${Math.random().toString(36).substring(2, 9)}`,
-    };
-
-    const updated = [newReq, ...requests];
-    saveRequests(updated);
-    showToast(`Request ${newReq.id} saved`, `Added for ${newReq.client}.`);
-    return newReq;
+  const addRequest = (data: Partial<ChangeRequest>): void => {
+    showToast('Request not created', 'Select a saved database client before creating a request.');
   };
 
   const updateRequest = (id: string, updates: Partial<ChangeRequest>) => {
-    const updated = requests.map(r => {
-      if (r.id.toLowerCase() === id.toLowerCase()) {
-        return { ...r, ...updates, updatedAt: new Date().toISOString() };
-      }
-      return r;
-    });
+    const updated = requests.map(r => r.id.toLowerCase() === id.toLowerCase() ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r);
     saveRequests(updated);
   };
 
   const updateStatus = (id: string, status: RequestStatus) => {
-    updateRequest(id, { status, nextAction: getNextAction(status) });
-    showToast('Status updated', `${id} is now ${getStatusLabel(status).toLowerCase()}.`);
+    void updateRequestStatus(id, status).then(async () => {
+      setRequests(await fetchRequests());
+      showToast('Status updated', `${id} is now ${getStatusLabel(status).toLowerCase()}.`);
+    }).catch((cause) => showToast('Update failed', cause instanceof Error ? cause.message : 'Unable to update status.'));
   };
 
   const approveRequest = (id: string, approverName: string, confirmationCode = `CF-${Math.floor(9000 + Math.random() * 1000)}`) => {
-    const now = new Date().toISOString();
-    const updated = requests.map(r => {
-      if (r.id.toLowerCase() === id.toLowerCase()) {
-        return {
-          ...r,
-          status: 'approved' as RequestStatus,
-          updatedAt: now,
-          nextAction: getNextAction('approved'),
-          approvalDetails: {
-            approvedAt: now,
-            approvedBy: approverName,
-            confirmationCode,
-          },
-        };
-      }
-      return r;
-    });
-    saveRequests(updated);
-    showToast('Request approved', `Confirmation ${confirmationCode} for ${approverName}.`);
+    showToast('Approval requires the live approval link', `${approverName} must approve from the client portal.`);
   };
 
   const declineRequest = (id: string, notes: string) => {
-    const now = new Date().toISOString();
-    const updated = requests.map(r => {
-      if (r.id.toLowerCase() === id.toLowerCase()) {
-        return {
-          ...r,
-          status: 'declined' as RequestStatus,
-          updatedAt: now,
-          nextAction: getNextAction('declined'),
-          approvalDetails: {
-            feedbackNotes: notes,
-          },
-        };
-      }
-      return r;
-    });
-    saveRequests(updated);
-    showToast('Feedback sent', 'Your feedback has been forwarded to the project lead.');
+    showToast('Feedback requires the live approval link', notes);
   };
 
   return (
@@ -268,6 +170,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hideToast,
         currentUser,
         updateCurrentUser,
+        isLoading,
+        error,
+        notifications,
       }}
     >
       {children}

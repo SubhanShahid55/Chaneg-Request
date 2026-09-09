@@ -6,6 +6,22 @@
 
 ## 🚀 Getting Started
 
+The UI now reads from the authenticated backend and does not seed demo records. Set these values before starting the services:
+
+```env
+# backend/.env
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_ANON_KEY=...
+RESEND_API_KEY=...
+REDIS_URL=redis://localhost:6379
+
+# frontend/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:4000
+```
+
+The frontend expects a Supabase access token in `localStorage` under `changeflow_access_token`. Redis is used for short-lived request/stat caches and safely falls back to direct Supabase reads when unavailable. Activity notifications refresh from the database every five seconds.
+
 ### 1. Run the Development Server
 ```bash
 npm run dev

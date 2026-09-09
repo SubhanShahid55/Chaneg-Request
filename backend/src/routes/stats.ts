@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../supabase.js';
+import { getCached, setCached } from '../services/cache.js';
 
 const router = Router();
 
@@ -8,6 +9,8 @@ const router = Router();
  * The four headline counts: needs_review, waiting, in_progress, completed.
  */
 router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
+  const cached = await getCached<typeof summaryShape>('stats:summary');
+  if (cached) { res.json(cached); return; }
   const { data, error } = await supabaseAdmin
     .from('change_requests')
     .select('status');
@@ -17,7 +20,7 @@ router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const counts = {
+  const counts: typeof summaryShape = {
     needs_review: 0,
     waiting: 0,
     in_progress: 0,
@@ -42,8 +45,16 @@ router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
     }
   }
 
+  await setCached('stats:summary', counts, 15);
   res.json(counts);
 });
+
+const summaryShape = {
+  needs_review: 0,
+  waiting: 0,
+  in_progress: 0,
+  completed: 0,
+};
 
 /**
  * GET /stats/weekly-velocity
@@ -145,6 +156,8 @@ router.get('/weekly-intake', async (_req: Request, res: Response): Promise<void>
  * Count per status for the donut chart.
  */
 router.get('/status-breakdown', async (_req: Request, res: Response): Promise<void> => {
+  const cached = await getCached<{ breakdown: Record<string, number> }>('stats:status-breakdown');
+  if (cached) { res.json(cached); return; }
   const { data, error } = await supabaseAdmin
     .from('change_requests')
     .select('status');
@@ -160,7 +173,9 @@ router.get('/status-breakdown', async (_req: Request, res: Response): Promise<vo
     breakdown[row.status] = (breakdown[row.status] || 0) + 1;
   }
 
-  res.json({ breakdown });
+  const response = { breakdown };
+  await setCached('stats:status-breakdown', response, 15);
+  res.json(response);
 });
 
 export default router;

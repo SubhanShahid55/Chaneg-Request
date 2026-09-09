@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface DiskChartItem {
   label: string;
@@ -14,6 +14,7 @@ interface DiskChartProps {
 }
 
 export function DiskChart({ data, title, size = 120, thickness = 20 }: DiskChartProps) {
+  const [activeLabel, setActiveLabel] = useState<string | null>(null);
   const total = data.reduce((acc, item) => acc + item.value, 0);
   let cumulativePercent = 0;
 
@@ -64,6 +65,8 @@ export function DiskChart({ data, title, size = 120, thickness = 20 }: DiskChart
         strokeWidth={thickness}
         strokeLinecap="round"
         className="transition-all duration-300 ease-in-out hover:opacity-80"
+            onMouseEnter={() => setActiveLabel(item.label)}
+            onMouseLeave={() => setActiveLabel(null)}
       />
     );
   });
@@ -79,8 +82,8 @@ export function DiskChart({ data, title, size = 120, thickness = 20 }: DiskChart
           )}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-xl font-bold text-[#0b1c30]">{total}</span>
-          <span className="text-[10px] text-[#464555] uppercase tracking-wider">Total</span>
+          <span className="text-xl font-bold text-[#0b1c30]">{activeLabel ? data.find(item => item.label === activeLabel)?.value : total}</span>
+          <span className="text-[10px] text-[#464555] uppercase tracking-wider">{activeLabel || 'Total'}</span>
         </div>
       </div>
       

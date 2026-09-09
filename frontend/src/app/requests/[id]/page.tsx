@@ -10,36 +10,22 @@ import { useApp, AppProvider, getStatusLabel } from '@/lib/store';
 import { RequestStatus, ScopeDeliverable } from '@/lib/types';
 import { StatusStepper } from '@/components/StatusStepper';
 import { NextActionBadge } from '@/components/NextActionBadge';
+import { addRequestNote } from '@/lib/api';
 
 function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
-  const { getRequestById, updateRequest, updateStatus, showToast } = useApp();
+  const { getRequestById, updateRequest, updateStatus, showToast, currentUser } = useApp();
 
   const request = getRequestById(id);
-  const req = request || getRequestById('CR-1042')!;
+  const req = request;
 
   const [hourlyRate, setHourlyRate] = useState<number>(req?.hourlyRate || 150);
   const [deliverables, setDeliverables] = useState<ScopeDeliverable[]>(req?.deliverables || []);
   const [targetSprint, setTargetSprint] = useState(req?.targetSprint || 'Sprint 38 (Q3 Release)');
   const [newNote, setNewNote] = useState('');
   const [isDetailedView, setIsDetailedView] = useState(false);
-  const [notes, setNotes] = useState([
-    {
-      author: 'Sarah Chen',
-      role: 'Lead PM',
-      avatar: '/assets/04_headshot_pm.png',
-      time: 'Yesterday, 17:10',
-      text: 'Mark emphasized that Pilot Alpha invoice must go out on June 1st. Keeping the Stripe webhook listener isolated so we do not disrupt existing billing subscriptions.',
-    },
-    {
-      author: 'Dev Lead (Dave K.)',
-      role: 'Backend Architect',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      time: 'Yesterday, 17:35',
-      text: 'Confirmed. 8 hours for the proration webhook calculation is sufficient. We can reuse our Stripe balance transactions utility.',
-    },
-  ]);
+  const [notes, setNotes] = useState(req?.notes || []);
 
   if (!req) {
     return (
@@ -71,7 +57,11 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
   };
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/approval/${req.id}`;
+    if (!req.approvalToken) {
+      showToast('Approval link unavailable', 'This request has not been sent for client approval yet.');
+      return;
+    }
+    const link = `${window.location.origin}/approval/${req.approvalToken}`;
     navigator.clipboard.writeText(link);
     showToast('Secure Approval Link Copied', `Link copied: ${link}`);
   };
@@ -84,18 +74,11 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNote.trim()) return;
-    setNotes([
-      ...notes,
-      {
-        author: 'Sarah Chen',
-        role: 'Lead PM',
-        avatar: '/assets/04_headshot_pm.png',
-        time: 'Just now',
-        text: newNote.trim(),
-      },
-    ]);
-    setNewNote('');
-    showToast('Note Added', 'Internal note logged to change request thread.');
+    void addRequestNote(req.databaseId || req.id, newNote.trim()).then(() => {
+      setNotes([...notes, { id: `local-${Date.now()}`, content: newNote.trim(), created_at: new Date().toISOString(), author_name: currentUser.name }]);
+      setNewNote('');
+      showToast('Note Added', 'Internal note logged to change request thread.');
+    }).catch((cause) => showToast('Note failed', cause instanceof Error ? cause.message : 'Unable to save note.'));
   };
 
   const renderPrimaryAction = () => {
@@ -321,21 +304,15 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
                 </SectionHeader>
                 <div className="p-4 flex flex-col gap-4">
                   <div className="flex flex-col gap-3">
-                    {notes.map((n, i) => (
-                      <div key={i} className="p-3 rounded-lg bg-[#f8f9ff] border border-[#e2e8f0]">
+                    {notes.map((n) => (
+                      <div key={n.id} className="p-3 rounded-lg bg-[#f8f9ff] border border-[#e2e8f0]">
                         <div className="flex items-center justify-between text-xs mb-1.5">
                           <div className="flex items-center gap-2">
-                            <img
-                              src={n.avatar}
-                              alt={n.author}
-                              className="w-5 h-5 rounded-full object-cover"
-                            />
-                            <span className="font-semibold text-[#0b1c30]">{n.author}</span>
-                            <span className="text-[11px] text-[#777587]">({n.role})</span>
+                            <span className="font-semibold text-[#0b1c30]">{n.author_name || 'Team member'}</span>
                           </div>
-                          <span className="text-[11px] text-[#777587]">{n.time}</span>
+                          <span className="text-[11px] text-[#777587]">{new Date(n.created_at).toLocaleString()}</span>
                         </div>
-                        <p className="text-xs text-[#464555]">{n.text}</p>
+                        <p className="text-xs text-[#464555]">{n.content}</p>
                       </div>
                     ))}
                   </div>

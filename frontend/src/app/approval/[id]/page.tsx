@@ -5,6 +5,7 @@ import { useApp, AppProvider } from '@/lib/store';
 import { ChangeRequest } from '@/lib/types';
 import { Toast } from '@/components/Toast';
 import { StatusStepper } from '@/components/StatusStepper';
+import { approveApproval, declineApproval } from '@/lib/api';
 
 function ClientApprovalContent({
   params,
@@ -19,7 +20,7 @@ function ClientApprovalContent({
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [isSubmittingDecline, setIsSubmittingDecline] = useState(false);
 
-  const req = getRequestById(resolvedParams.id) || getRequestById('CR-1042');
+  const req = getRequestById(resolvedParams.id);
 
   if (!req) {
     return (
@@ -41,11 +42,12 @@ function ClientApprovalContent({
   const handleApprove = () => {
     setIsAuthorizing(true);
     setTimeout(() => {
-      approveRequest(req.id, req.clientContact.name);
-      setIsAuthorizing(false);
-      setViewState('accepted');
-      showToast('Change request approved', `Confirmation #${confirmationNumber} logged for ${req.client}.`);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      approveApproval(resolvedParams.id).then(({ confirmation_code }) => {
+        setIsAuthorizing(false);
+        setViewState('accepted');
+        showToast('Change request approved', `Confirmation #${confirmation_code} logged for ${req.client}.`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }).catch((cause) => { setIsAuthorizing(false); showToast('Approval failed', cause instanceof Error ? cause.message : 'Unable to approve request.'); });
     }, 750);
   };
 
@@ -54,11 +56,11 @@ function ClientApprovalContent({
     if (!declineNotes.trim()) return;
     setIsSubmittingDecline(true);
     setTimeout(() => {
-      declineRequest(req.id, declineNotes);
-      setIsSubmittingDecline(false);
-      setViewState('review');
-      showToast('Message Sent', 'Your message has been delivered to the agency lead.');
-      alert('Your message was forwarded directly to ' + req.assignedLead.name + '. They will reply soon.');
+      declineApproval(resolvedParams.id, declineNotes).then(() => {
+        setIsSubmittingDecline(false);
+        setViewState('review');
+        showToast('Message Sent', 'Your message has been delivered to the agency lead.');
+      }).catch((cause) => { setIsSubmittingDecline(false); showToast('Message failed', cause instanceof Error ? cause.message : 'Unable to send feedback.'); });
     }, 600);
   };
 

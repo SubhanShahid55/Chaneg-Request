@@ -1,6 +1,6 @@
 export type RequestStatus = 'draft' | 'pending' | 'approved' | 'declined' | 'in_progress' | 'completed' | 'reviewing' | 'awaiting_approval';
 export type UrgencyLevel = 'Low' | 'Medium' | 'High' | 'Critical';
-export type IntakeChannel = 'Portal';
+export type IntakeChannel = 'Portal' | 'call' | 'text' | 'meeting' | 'email' | '';
 
 export interface ScopeDeliverable {
   id: string;
@@ -25,6 +25,7 @@ export interface AgencyLead {
 
 export interface ChangeRequest {
   id: string;
+  databaseId?: string;
   client: string;
   clientLogo?: string;
   project: string;
@@ -54,5 +55,6 @@ export interface ChangeRequest {
     confirmationCode?: string;
     feedbackNotes?: string;
   };
+  notes?: Array<{ id: string; content: string; created_at: string; author_name?: string }>;
 }
 

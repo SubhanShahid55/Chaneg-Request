@@ -1,20 +1,22 @@
-import { verifyCredentials } from '@supabase/server/core';
+import { supabaseAdmin } from '../supabase.js';
 /**
  * Auth middleware — validates the Supabase access token from the
  * Authorization header and attaches userId / userEmail to the request.
  */
 export async function requireAuth(req, res, next) {
-    const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || null;
-    const apikey = req.headers.apikey || null;
-    const credentials = { token, apikey };
-    const { data: auth, error } = await verifyCredentials(credentials, { auth: 'user' });
-    if (error) {
-        res.status(error.status || 401).json({ error: error.message });
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Missing or malformed Authorization header' });
         return;
     }
-    // userClaims contains the decoded JWT payload
-    req.userId = auth?.userClaims?.sub;
-    req.userEmail = auth?.userClaims?.email;
+    const token = authHeader.slice(7);
+    const { data: { user }, error, } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) {
+        res.status(401).json({ error: error?.message || 'Invalid or expired session' });
+        return;
+    }
+    req.userId = user.id;
+    req.userEmail = user.email;
     next();
 }
 //# sourceMappingURL=auth.js.map

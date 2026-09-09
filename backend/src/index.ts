@@ -9,6 +9,7 @@ import clientRoutes from './routes/clients.js';
 import requestRoutes from './routes/requests.js';
 import statsRoutes from './routes/stats.js';
 import approvalRoutes from './routes/approval.js';
+import eventsRoutes from './routes/events.js';
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use('/profile', requireAuth, authRoutes);           // PATCH /profile
 app.use('/clients', requireAuth, clientRoutes);
 app.use('/requests', requireAuth, requestRoutes);
 app.use('/stats', requireAuth, statsRoutes);
+app.use('/events', requireAuth, eventsRoutes);
 
 // ─── Global error handler ───────────────────────────────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

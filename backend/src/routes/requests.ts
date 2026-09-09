@@ -5,6 +5,7 @@ import { sendApprovalEmail } from '../services/email.js';
 import { generateApprovalToken } from '../utils/tokens.js';
 import { buildCsv } from '../utils/csv.js';
 import { config } from '../config.js';
+import { getCached, invalidateCache, setCached } from '../services/cache.js';
 import type { RequestStatus, CreateRequestBody, UpdateEstimateBody } from '../types.js';
 
 const router = Router();
@@ -109,6 +110,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
   const offset = (page - 1) * limit;
+  const cacheKey = `requests:list:${status || 'all'}:${q || ''}:${page}:${limit}`;
+  const cached = await getCached<{ data: unknown[]; total: number; page: number; limit: number }>(cacheKey);
+  if (cached) { res.json(cached); return; }
 
   let query = supabaseAdmin
     .from('change_requests')
@@ -129,7 +133,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     .range(offset, offset + limit - 1);
 
   if (error) { res.status(500).json({ error: error.message }); return; }
-  res.json({ data: data ?? [], total: count ?? 0, page, limit });
+  const response = { data: data ?? [], total: count ?? 0, page, limit };
+  await setCached(cacheKey, response, 15);
+  res.json(response);
 });
 
 // ---------------------------------------------------------------------------
@@ -142,7 +148,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const { data: request, error } = await supabaseAdmin
     .from('change_requests')
     .select('*')
-    .eq('id', id)
+    .or(`id.eq.${id},reference_code.eq.${id}`)
     .single();
 
   if (error || !request) { res.status(404).json({ error: 'Request not found' }); return; }
@@ -224,6 +230,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  await invalidateCache('stats:summary', 'stats:status-breakdown');
+
   // Insert deliverables
   if (body.deliverables?.length) {
     await supabaseAdmin.from('deliverables').insert(
@@ -275,6 +283,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     .single();
 
   if (error) { res.status(500).json({ error: error.message }); return; }
+  await invalidateCache('stats:summary', 'stats:status-breakdown');
   res.json(data);
 });
 
@@ -307,6 +316,8 @@ router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void>
     res.status(500).json({ error: updateError?.message ?? 'Failed to update estimate' });
     return;
   }
+
+  await invalidateCache('stats:summary', 'stats:status-breakdown');
 
   // Replace deliverables
   await supabaseAdmin.from('deliverables').delete().eq('request_id', id);
@@ -392,6 +403,8 @@ router.post('/:id/send-for-approval', async (req: Request, res: Response): Promi
       .update({ status: 'awaiting_approval', updated_at: now })
       .eq('id', id);
 
+    await invalidateCache('stats:summary', 'stats:status-breakdown');
+
     const actorName = await getActorName(userId);
     await logActivity(id, 'sent_for_approval', {
       client_name: client.company_name,
@@ -460,6 +473,8 @@ router.post('/:id/advance', async (req: Request, res: Response): Promise<void> =
       .single();
 
     if (error) { res.status(500).json({ error: error.message }); return; }
+
+    await invalidateCache('stats:summary', 'stats:status-breakdown');
 
     const actorName = await getActorName(userId);
     await logActivity(id, eventType, { from: request.status, to: targetStatus }, actorName);

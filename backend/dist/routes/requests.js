@@ -5,6 +5,7 @@ import { sendApprovalEmail } from '../services/email.js';
 import { generateApprovalToken } from '../utils/tokens.js';
 import { buildCsv } from '../utils/csv.js';
 import { config } from '../config.js';
+import { getCached, invalidateCache, setCached } from '../services/cache.js';
 const router = Router();
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,6 +92,12 @@ router.get('/', async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
+    const cacheKey = `requests:list:${status || 'all'}:${q || ''}:${page}:${limit}`;
+    const cached = await getCached(cacheKey);
+    if (cached) {
+        res.json(cached);
+        return;
+    }
     let query = supabaseAdmin
         .from('change_requests')
         .select('*, clients(company_name, contact_name, contact_email)', { count: 'exact' });
@@ -110,7 +117,9 @@ router.get('/', async (req, res) => {
         res.status(500).json({ error: error.message });
         return;
     }
-    res.json({ data: data ?? [], total: count ?? 0, page, limit });
+    const response = { data: data ?? [], total: count ?? 0, page, limit };
+    await setCached(cacheKey, response, 15);
+    res.json(response);
 });
 // ---------------------------------------------------------------------------
 // GET /:id — Full request detail
@@ -120,7 +129,7 @@ router.get('/:id', async (req, res) => {
     const { data: request, error } = await supabaseAdmin
         .from('change_requests')
         .select('*')
-        .eq('id', id)
+        .or(`id.eq.${id},reference_code.eq.${id}`)
         .single();
     if (error || !request) {
         res.status(404).json({ error: 'Request not found' });
@@ -192,6 +201,7 @@ router.post('/', async (req, res) => {
         res.status(500).json({ error: error?.message ?? 'Failed to create request' });
         return;
     }
+    await invalidateCache('stats:summary', 'stats:status-breakdown');
     // Insert deliverables
     if (body.deliverables?.length) {
         await supabaseAdmin.from('deliverables').insert(body.deliverables.map((d) => ({
@@ -238,6 +248,7 @@ router.patch('/:id', async (req, res) => {
         res.status(500).json({ error: error.message });
         return;
     }
+    await invalidateCache('stats:summary', 'stats:status-breakdown');
     res.json(data);
 });
 // ---------------------------------------------------------------------------
@@ -265,6 +276,7 @@ router.patch('/:id/estimate', async (req, res) => {
         res.status(500).json({ error: updateError?.message ?? 'Failed to update estimate' });
         return;
     }
+    await invalidateCache('stats:summary', 'stats:status-breakdown');
     // Replace deliverables
     await supabaseAdmin.from('deliverables').delete().eq('request_id', id);
     if (body.deliverables?.length) {
@@ -336,6 +348,7 @@ router.post('/:id/send-for-approval', async (req, res) => {
             .from('change_requests')
             .update({ status: 'awaiting_approval', updated_at: now })
             .eq('id', id);
+        await invalidateCache('stats:summary', 'stats:status-breakdown');
         const actorName = await getActorName(userId);
         await logActivity(id, 'sent_for_approval', {
             client_name: client.company_name,
@@ -400,6 +413,7 @@ router.post('/:id/advance', async (req, res) => {
             res.status(500).json({ error: error.message });
             return;
         }
+        await invalidateCache('stats:summary', 'stats:status-breakdown');
         const actorName = await getActorName(userId);
         await logActivity(id, eventType, { from: request.status, to: targetStatus }, actorName);
         res.json(updated);
