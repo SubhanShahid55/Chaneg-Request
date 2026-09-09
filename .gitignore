@@ -23,6 +23,7 @@ skills-lock.json
 # Design exports and source references not used by either deployment
 /stitch_raw/
 /backend/supabase/reset_dev_data.sql
+/backend/supabase/
 
 # Local tooling and coverage output
 .vercel/
