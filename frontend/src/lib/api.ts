@@ -8,6 +8,58 @@ function accessToken() {
   return localStorage.getItem('changeflow_access_token') || '';
 }
 
+export interface AuthProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'standard';
+  is_active: boolean;
+  avatar_url: string | null;
+}
+
+export async function login(email: string, password: string) {
+  const response = await apiFetch<{ access_token: string; refresh_token: string; profile: AuthProfile }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  localStorage.setItem('changeflow_access_token', response.access_token);
+  localStorage.setItem('changeflow_profile', JSON.stringify(response.profile));
+  return response.profile;
+}
+
+export function logout() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('changeflow_access_token');
+  localStorage.removeItem('changeflow_profile');
+}
+
+export function storedProfile(): AuthProfile | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = localStorage.getItem('changeflow_profile');
+    return value ? JSON.parse(value) as AuthProfile : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface AdminUser extends AuthProfile {
+  created_at?: string;
+  last_sign_in_at?: string | null;
+}
+
+export async function fetchAdminUsers() {
+  return apiFetch<{ users: AdminUser[] }>('/admin/users');
+}
+
+export async function inviteAdminUser(data: { name: string; email: string; role: 'admin' | 'standard' }) {
+  return apiFetch<{ user: AdminUser }>('/admin/users', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateAdminUser(id: string, updates: Partial<Pick<AdminUser, 'name' | 'role' | 'is_active'>>) {
+  return apiFetch<{ user: AdminUser }>(`/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(updates) });
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = accessToken();
   const response = await fetch(`${API_URL}${path}`, {

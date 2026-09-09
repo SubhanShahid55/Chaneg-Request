@@ -12,7 +12,8 @@ CREATE SEQUENCE IF NOT EXISTS change_request_code_seq START WITH 1042;
 CREATE TABLE IF NOT EXISTS profiles (
   id          uuid PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
   name        text NOT NULL DEFAULT '',
-  role        text NOT NULL DEFAULT 'Team Member',
+  role        text NOT NULL DEFAULT 'standard' CHECK (role IN ('admin', 'standard')),
+  is_active   boolean NOT NULL DEFAULT true,
   avatar_url  text,
   email       text
 );

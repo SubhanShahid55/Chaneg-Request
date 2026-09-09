@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthGate } from '@/components/AuthGate';
 
 export const metadata: Metadata = {
   title: 'ChangeFlow - Software Agency Change Request Tracker',
@@ -29,7 +30,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-surface text-on-surface min-h-screen antialiased">
-        {children}
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );

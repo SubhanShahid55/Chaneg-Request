@@ -27,7 +27,7 @@ export function ProfileSettingsModal() {
   };
 
   const presetAvatars = [
-    '/assets/04_headshot_pm.png',
+    '',
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
     'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150&auto=format&fit=crop&q=80',
     'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',

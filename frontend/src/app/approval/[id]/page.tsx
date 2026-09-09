@@ -383,7 +383,7 @@ function ClientApprovalContent({
                 <img
                   className="w-11 h-11 rounded-full object-cover shrink-0 ring-2 ring-[#4f46e5]/30 shadow-xs"
                   alt={reqData.assignedLead.name}
-                  src="/assets/04_headshot_pm.png"
+                  src="/assets/logo.svg"
                 />
                 <div className="flex flex-col min-w-0 text-xs">
                   <span className="font-bold text-[#0b1c30] text-sm truncate">

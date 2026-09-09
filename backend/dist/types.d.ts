@@ -5,7 +5,8 @@ export type DeliverableCategory = 'Frontend' | 'Backend' | 'Database / API' | 'Q
 export interface Profile {
     id: string;
     name: string;
-    role: string;
+    role: 'admin' | 'standard';
+    is_active: boolean;
     avatar_url: string | null;
     email: string;
 }
@@ -140,6 +141,7 @@ declare global {
         interface Request {
             userId?: string;
             userEmail?: string;
+            userRole?: 'admin' | 'standard';
         }
     }
 }

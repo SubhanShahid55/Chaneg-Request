@@ -9,6 +9,7 @@ import { Toast } from '@/components/Toast';
 import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
 import { useApp, AppProvider, getStatusLabel } from '@/lib/store';
 import { fetchWeeklyVelocity } from '@/lib/api';
+import { LoginScreen } from '@/components/LoginScreen';
 
 function timeAgo(dateString?: string) {
   if (!dateString) return 'N/A';
@@ -19,7 +20,7 @@ function timeAgo(dateString?: string) {
   return `${Math.floor(days / 7)} weeks ago`;
 }
 
-function DashboardContent() {
+export function DashboardContent() {
   const { requests, setIsSlideoverOpen, showToast, globalSearchQuery, isLoading, error } = useApp();
   const [statusFilter, setStatusFilter] = useState('all');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -218,6 +219,6 @@ function DashboardContent() {
   );
 }
 
-export default function DashboardPage() {
-  return <AppProvider><DashboardContent /></AppProvider>;
+export default function LoginPage() {
+  return <LoginScreen />;
 }

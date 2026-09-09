@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireAuth, requireAdmin } from './middleware/auth.js';
 import { approvalRateLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
 import clientRoutes from './routes/clients.js';
@@ -10,6 +10,7 @@ import requestRoutes from './routes/requests.js';
 import statsRoutes from './routes/stats.js';
 import approvalRoutes from './routes/approval.js';
 import eventsRoutes from './routes/events.js';
+import adminRoutes from './routes/admin.js';
 
 const app = express();
 
@@ -56,10 +57,11 @@ app.use('/approval', approvalRateLimiter, approvalRoutes);
 // ─── Authenticated routes ───────────────────────────────────
 app.use('/auth', authRoutes);                          // POST /auth/session is special — it validates the token itself
 app.use('/profile', requireAuth, authRoutes);           // PATCH /profile
-app.use('/clients', clientRoutes);
-app.use('/requests', requestRoutes);
-app.use('/stats', statsRoutes);
-app.use('/events', eventsRoutes);
+app.use('/admin', requireAuth, requireAdmin, adminRoutes);
+app.use('/clients', requireAuth, clientRoutes);
+app.use('/requests', requireAuth, requestRoutes);
+app.use('/stats', requireAuth, statsRoutes);
+app.use('/events', requireAuth, eventsRoutes);
 
 // ─── Global error handler ───────────────────────────────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

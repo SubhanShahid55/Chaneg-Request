@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/lib/store';
+import { logout } from '@/lib/api';
 
 export function Header() {
   const pathname = usePathname();
@@ -14,9 +15,10 @@ export function Header() {
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
 
   const navItems = [
-    { label: 'Dashboard', href: '/', icon: 'dashboard' },
+    { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     { label: 'Requests', href: '/requests', icon: 'list_alt' },
     { label: 'Reports', href: '/reports', icon: 'bar_chart' },
+    ...(currentUser.role === 'admin' ? [{ label: 'Admin', href: '/admin', icon: 'manage_accounts' }] : []),
   ];
 
   return (
@@ -136,17 +138,13 @@ export function Header() {
               className="flex items-center gap-2 pl-2 border-l border-[#d3e4fe]/80 text-left hover:opacity-80 transition-opacity"
               title="Edit Profile"
             >
-              <img
-                alt="Profile"
-                className="w-8 h-8 rounded-full object-cover ring-1 ring-[#4f46e5]/30"
-                src={currentUser?.avatarUrl || '/assets/04_headshot_pm.png'}
-              />
+              {currentUser?.avatarUrl ? <img alt={`${currentUser.name} profile`} className="w-8 h-8 rounded-full object-cover ring-1 ring-[#4f46e5]/30" src={currentUser.avatarUrl} /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dcefe8] text-xs font-bold text-[#176b57]">{(currentUser?.name || 'U').slice(0, 1).toUpperCase()}</span>}
               <div className="hidden lg:flex flex-col">
                 <span className="text-xs font-semibold text-[#0b1c30] leading-none">
-                  {currentUser?.name || 'Sarah Chen'}
+                  {currentUser?.name || 'Your profile'}
                 </span>
                 <span className="text-[10px] text-[#464555] mt-1 leading-none">
-                  {currentUser?.role || 'Lead PM / Partner'}
+                  {currentUser?.role || 'User'}
                 </span>
               </div>
             </button>

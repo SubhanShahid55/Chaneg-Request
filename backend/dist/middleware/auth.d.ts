@@ -4,4 +4,5 @@ import { Request, Response, NextFunction } from 'express';
  * Authorization header and attaches userId / userEmail to the request.
  */
 export declare function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function requireAdmin(req: Request, res: Response, next: NextFunction): void;
 //# sourceMappingURL=auth.d.ts.map

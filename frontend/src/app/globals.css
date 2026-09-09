@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+.field {
+  width: 100%;
+  border: 1px solid #b9cbc3;
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  outline: none;
+}
+
+.field:focus {
+  border-color: #176b57;
+  box-shadow: 0 0 0 2px rgb(23 107 87 / 0.18);
+}
+
 @theme {
   --color-primary: #3525cd;
   --color-primary-container: #4f46e5;

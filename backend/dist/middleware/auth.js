@@ -17,6 +17,27 @@ export async function requireAuth(req, res, next) {
     }
     req.userId = user.id;
     req.userEmail = user.email;
+    const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('role, is_active')
+        .eq('id', user.id)
+        .single();
+    if (profileError || !profile) {
+        res.status(403).json({ error: 'Your account profile is not available.' });
+        return;
+    }
+    if (!profile.is_active) {
+        res.status(403).json({ error: 'Your account is inactive. Contact an administrator.' });
+        return;
+    }
+    req.userRole = profile.role;
+    next();
+}
+export function requireAdmin(req, res, next) {
+    if (req.userRole !== 'admin') {
+        res.status(403).json({ error: 'You do not have permission to view this page.' });
+        return;
+    }
     next();
 }
 //# sourceMappingURL=auth.js.map

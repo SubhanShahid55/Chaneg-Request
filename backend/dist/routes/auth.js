@@ -1,6 +1,34 @@
 import { Router } from 'express';
 import { supabaseAdmin } from '../supabase.js';
 const router = Router();
+/** POST /auth/login - sign in with Supabase Auth credentials. */
+router.post('/login', async (req, res) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!email || !password) {
+        res.status(400).json({ error: 'Enter your email address and password.' });
+        return;
+    }
+    const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+    if (error || !data.user || !data.session) {
+        res.status(401).json({ error: 'The email or password is incorrect.' });
+        return;
+    }
+    const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+    if (profileError || !profile) {
+        res.status(403).json({ error: 'Your account profile is not available.' });
+        return;
+    }
+    if (!profile.is_active) {
+        res.status(403).json({ error: 'Your account is inactive. Contact an administrator.' });
+        return;
+    }
+    res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token, profile });
+});
 /**
  * POST /auth/session
  * Validate a Supabase access token and return the matching profile.
@@ -30,7 +58,8 @@ router.post('/session', async (req, res) => {
             id: user.id,
             email: user.email,
             name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-            role: 'Team Member',
+            role: 'standard',
+            is_active: true,
             avatar_url: null,
         })
             .select()
@@ -58,12 +87,10 @@ router.patch('/', async (req, res) => {
         res.status(401).json({ error: 'Not authenticated' });
         return;
     }
-    const { name, role, avatar_url } = req.body;
+    const { name, avatar_url } = req.body;
     const updates = {};
     if (name !== undefined)
         updates.name = name;
-    if (role !== undefined)
-        updates.role = role;
     if (avatar_url !== undefined)
         updates.avatar_url = avatar_url;
     if (Object.keys(updates).length === 0) {

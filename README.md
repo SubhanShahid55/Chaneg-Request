@@ -6,7 +6,7 @@
 
 ## 🚀 Getting Started
 
-The UI now reads from the authenticated backend and does not seed demo records. Set these values before starting the services:
+The UI now starts at a login screen, reads from the authenticated backend, and does not seed demo records. Set these values before starting the services:
 
 ```env
 # backend/.env
@@ -23,7 +23,9 @@ NEXT_PUBLIC_API_URL=https://chaneg-flow-backend.vercel.app
 
 For Vercel, create the frontend project with `frontend` as its **Root Directory**. Create the backend as a separate project with `backend` as its **Root Directory**. The frontend project should have `NEXT_PUBLIC_API_URL` set to the deployed backend URL, and the backend project should have `CORS_ORIGINS` set to `https://change-flow-eight.vercel.app`.
 
-The frontend expects a Supabase access token in `localStorage` under `changeflow_access_token`. Redis is used for short-lived request/stat caches and safely falls back to direct Supabase reads when unavailable. Activity notifications refresh from the database every five seconds.
+The frontend receives a Supabase access token from `POST /auth/login` and stores only the session token in the existing client session mechanism. Redis is used for short-lived request/stat caches and safely falls back to direct Supabase reads when unavailable. Activity notifications refresh from the database every five seconds.
+
+Run migrations `001_initial_schema.sql` and `002_roles_and_profile_storage.sql` in Supabase. The first administrator must be created in Supabase Auth and then assigned `role = 'admin'` in `profiles`; administrators can invite subsequent users from `/admin`. Profile images are uploaded to the private `profile-pictures` bucket through the admin API and are never committed to the repository.
 
 ### 1. Run the Development Server
 ```bash
@@ -46,11 +48,9 @@ npm start
 | **1** | **ChangeFlow - Agency Dashboard** | [`/`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/page.tsx) | Velocity intake charts, stat matrix (Total Requests, Pending Approval, Approved, Total Value), filter tabs, live search, CSV export, and change request table. |
 | **2** | **ChangeFlow Logo Asset** | [`/design-system`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/design-system/page.tsx) | Scalable SVG mark & PNG preview with vector download. |
 | **3** | **Change Request Tracker Spec** | [`/design-system`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/design-system/page.tsx) | Architecture specification, library overview, data model, and integration goals. |
-| **4** | **Professional Headshot Asset** | [`/assets/04_headshot_pm.png`](file:///c:/Users/CT/Desktop/Chaneg%20Request/public/assets/04_headshot_pm.png) | Sarah Chen (Lead PM / Partner). |
 | **5** | **Design System** | [`/design-system`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/design-system/page.tsx) | Precision Modern SaaS palette, typography scale (Geist + JetBrains Mono), spacing, elevation tiers, and status badges. |
 | **2** | **ChangeFlow Logo Asset** | [`public/assets/logo.svg`](file:///c:/Users/CT/Desktop/Chaneg%20Request/public/assets/logo.svg) | Scalable vector brand logo. |
 | **3** | **Change Request Tracker Spec** | [`stitch_raw/code/03_tracker_spec.md`](file:///c:/Users/CT/Desktop/Chaneg%20Request/stitch_raw/code/03_tracker_spec.md) | Architecture specification & data layer overview. |
-| **4** | **Professional Headshot Asset** | [`public/assets/04_headshot_pm.png`](file:///c:/Users/CT/Desktop/Chaneg%20Request/public/assets/04_headshot_pm.png) | Sarah Chen (Lead PM / Partner). |
 | **5** | **Design System Specification** | [`stitch_raw/code/05_design_system.md`](file:///c:/Users/CT/Desktop/Chaneg%20Request/stitch_raw/code/05_design_system.md) | Precision Modern SaaS palette, typography scale, and elevation tiers. |
 | **6** | **ChangeFlow - Agency Sign In** | [`/login`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/login/page.tsx) | Team portal login with quick-fill testing credentials, Google Workspace auth, and SOC2/Supabase hooks. |
 | **7** | **Request Detail & Scope Estimate** | [`/requests/CR-1042`](file:///c:/Users/CT/Desktop/Chaneg%20Request/src/app/requests/[id]/page.tsx) | Deep-dive scope editor with real-time hour steppers, live rate calculations ($3,600 USD), Slack quote excerpt, deliverables breakdown, exclusions, and dispatch triggers. |

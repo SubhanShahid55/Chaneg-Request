@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel } from './types';
-import { API_BASE_URL, addRequestNote, createRequest, fetchActivity, fetchRequests, updateRequestStatus } from './api';
+import { API_BASE_URL, addRequestNote, createRequest, fetchActivity, fetchRequests, storedProfile, updateRequestStatus } from './api';
 
 export function getNextAction(status: RequestStatus): string {
   switch (status) {
@@ -76,7 +76,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [toast, setToast] = useState<{ title: string; subtitle?: string; visible: boolean } | null>(null);
-  const [currentUser, setCurrentUser] = useState<CurrentUser>(DEFAULT_USER);
+  const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
+    const profile = storedProfile();
+    return profile ? { name: profile.name, role: profile.role, avatarUrl: profile.avatar_url || '' } : DEFAULT_USER;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Array<{ id: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }>>([]);
