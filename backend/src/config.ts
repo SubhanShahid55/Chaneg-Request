@@ -8,10 +8,18 @@ function requireEnv(name: string): string {
   return val;
 }
 
+function requireAnyEnv(...names: string[]): string {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  throw new Error(`Missing required environment variable: ${names.join(' or ')}`);
+}
+
 export const config = {
   supabaseUrl: requireEnv('SUPABASE_URL'),
-  supabaseServiceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-  supabaseAnonKey: requireEnv('SUPABASE_ANON_KEY'),
+  supabaseServiceRoleKey: requireAnyEnv('SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'),
+  supabaseAnonKey: requireAnyEnv('SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ANON_KEY'),
   resendApiKey: requireEnv('RESEND_API_KEY'),
   fromEmail: process.env.FROM_EMAIL || 'noreply@momentumstudio.dev',
   teamEmail: process.env.TEAM_EMAIL || 'sarah@momentumstudio.dev',
