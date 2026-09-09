@@ -9,6 +9,7 @@ export interface Profile {
     is_active: boolean;
     avatar_url: string | null;
     email: string;
+    job_title: string | null;
 }
 export interface Client {
     id: string;

@@ -6,4 +6,5 @@ export declare function sendApprovalEmail(clientEmail: string, clientName: strin
  * Notify the Momentum Studio team when a client approves or declines.
  */
 export declare function sendTeamNotification(subject: string, body: string): Promise<void>;
+export declare function sendInvitationEmail(recipientEmail: string, recipientName: string, jobTitle: string | null, invitationUrl: string): Promise<void>;
 //# sourceMappingURL=email.d.ts.map
