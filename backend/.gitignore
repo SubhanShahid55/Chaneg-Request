@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.vercel/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+coverage/
+
+# Local agent skills and generated metadata
+.agents/
+skills-lock.json
+**/SKILL.md
+**/*.instructions.md
+**/*.prompt.md

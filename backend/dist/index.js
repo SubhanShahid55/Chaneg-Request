@@ -37,8 +37,9 @@ app.use((err, _req, res, _next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 // ─── Start ──────────────────────────────────────────────────
-app.listen(config.port, () => {
-    console.log(`
+if (!process.env.VERCEL) {
+    app.listen(config.port, () => {
+        console.log(`
   ┌─────────────────────────────────────────────┐
   │                                             │
   │   ChangeFlow API Server                     │
@@ -54,6 +55,7 @@ app.listen(config.port, () => {
   │                                             │
   └─────────────────────────────────────────────┘
   `);
-});
+    });
+}
 export default app;
 //# sourceMappingURL=index.js.map

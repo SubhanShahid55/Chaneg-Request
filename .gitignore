@@ -1,9 +1,29 @@
 node_modules
 .next
 out
+dist
 .DS_Store
 *.log
 
 
 .env
 .env.*
+!.env.example
+
+# Local agent skills, caches, and generated instruction metadata
+.agents/
+.claude/
+.cursor/
+.copilot/
+skills-lock.json
+**/SKILL.md
+**/*.instructions.md
+**/*.prompt.md
+
+# Design exports and source references not used by either deployment
+/stitch_raw/
+
+# Local tooling and coverage output
+.vercel/
+coverage/
+*.tsbuildinfo

@@ -3,4 +3,10 @@ node_modules
 out
 .DS_Store
 *.log
+.vercel/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
 

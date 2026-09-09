@@ -44,8 +44,9 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // ─── Start ──────────────────────────────────────────────────
-app.listen(config.port, () => {
-  console.log(`
+if (!process.env.VERCEL) {
+  app.listen(config.port, () => {
+    console.log(`
   ┌─────────────────────────────────────────────┐
   │                                             │
   │   ChangeFlow API Server                     │
@@ -61,6 +62,7 @@ app.listen(config.port, () => {
   │                                             │
   └─────────────────────────────────────────────┘
   `);
-});
+  });
+}
 
 export default app;
