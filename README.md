@@ -19,15 +19,17 @@ CORS_ORIGINS=https://change-flow-eight.vercel.app
 
 # frontend/.env.local
 NEXT_PUBLIC_API_URL=https://chaneg-flow-backend.vercel.app
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
 For Vercel, create the frontend project with `frontend` as its **Root Directory**. Create the backend as a separate project with `backend` as its **Root Directory**. The frontend project should have `NEXT_PUBLIC_API_URL` set to the deployed backend URL, and the backend project should have `CORS_ORIGINS` set to `https://change-flow-eight.vercel.app`.
 
 The frontend receives a Supabase access token from `POST /auth/login` and stores only the session token in the existing client session mechanism. Redis is used for short-lived request/stat caches and safely falls back to direct Supabase reads when unavailable. Activity notifications refresh from the database every five seconds.
 
-Run migrations `001_initial_schema.sql` and `002_roles_and_profile_storage.sql` in Supabase. The first administrator must be created in Supabase Auth and then assigned `role = 'admin'` in `profiles`; administrators can invite subsequent users from `/admin`. Profile images are uploaded to the private `profile-pictures` bucket through the admin API and are never committed to the repository.
+Run migrations `001_initial_schema.sql` through `005_invitation_storage_policies.sql` in Supabase. The first administrator must be created in Supabase Auth and then assigned `role = 'admin'` in `profiles`; administrators can invite subsequent users from `/admin`. Profile images are uploaded to the private `profile-pictures` bucket through the backend API and are returned as short-lived signed URLs; service-role secrets never reach the frontend.
 
-Run `003_profile_job_title.sql` and `004_profile_on_auth_signup.sql` before using the invitation form. New registrations are written to both Supabase Auth and `public.profiles`; the database trigger guarantees a profile row even if the invitation flow is retried. `role` remains the protected access level (`admin` or `standard`); `job_title` is the human-readable role or title, such as `Project manager` or `Other`. For branded invitation emails, configure a real `RESEND_API_KEY` and a verified `FROM_EMAIL` in the backend deployment. Without those values, Supabase sends its default invitation email.
+Run migrations `003_profile_job_title.sql` and `004_profile_on_auth_signup.sql` before using the invitation form. New registrations are written to both Supabase Auth and `public.profiles`; the database trigger guarantees a profile row even if the invitation flow is retried. `role` remains the protected access level (`admin` or `standard`); `job_title` is the human-readable role or title, such as `Project manager` or `Other`. For branded invitation emails and resends, configure a real `RESEND_API_KEY` and a verified `FROM_EMAIL` in the backend deployment. Without those values, new invitations use Supabase's default email; resending an unaccepted invitation requires the branded email configuration. Add `${APP_URL}/accept-invite` and `${APP_URL}/reset-password` to Supabase Auth URL Configuration.
 
 To reset development or staging data while preserving active administrators, manually run `backend/supabase/reset_dev_data.sql` in the Supabase SQL Editor. It removes requests, clients, projects, activities, approvals, and non-admin accounts, and stops if no active admin profile exists. This file is intentionally outside the migrations directory so normal deployments never execute it automatically.
 

@@ -40,11 +40,33 @@ export async function validateSession(token: string) {
   return result.profile;
 }
 
-export async function setInvitationPassword(password: string) {
+export async function setInvitationPassword(password: string, name?: string, job_title?: string) {
   return apiFetch<{ success: true }>('/auth/password', {
     method: 'POST',
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ password, name, job_title }),
   });
+}
+
+export async function requestPasswordReset(email: string) {
+  return apiFetch<{ success: true }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+}
+
+export async function updateProfile(updates: { name?: string; job_title?: string }) {
+  const response = await apiFetch<{ profile: AuthProfile }>('/profile', { method: 'PATCH', body: JSON.stringify(updates) });
+  localStorage.setItem('changeflow_profile', JSON.stringify(response.profile));
+  return response.profile;
+}
+
+export async function uploadProfileAvatar(dataUrl: string) {
+  const response = await apiFetch<{ profile: AuthProfile }>('/profile/avatar', { method: 'POST', body: JSON.stringify({ dataUrl }) });
+  localStorage.setItem('changeflow_profile', JSON.stringify(response.profile));
+  return response.profile;
+}
+
+export async function removeProfileAvatar() {
+  const response = await apiFetch<{ profile: AuthProfile }>('/profile/avatar', { method: 'DELETE' });
+  localStorage.setItem('changeflow_profile', JSON.stringify(response.profile));
+  return response.profile;
 }
 
 export function logout() {
@@ -66,6 +88,8 @@ export function storedProfile(): AuthProfile | null {
 export interface AdminUser extends AuthProfile {
   created_at?: string;
   last_sign_in_at?: string | null;
+  email_confirmed_at?: string | null;
+  invite_status?: 'invited' | 'active' | 'inactive';
 }
 
 export async function fetchAdminUsers() {
@@ -78,6 +102,18 @@ export async function inviteAdminUser(data: { name: string; email: string; role:
 
 export async function updateAdminUser(id: string, updates: Partial<Pick<AdminUser, 'name' | 'role' | 'is_active'>>) {
   return apiFetch<{ user: AdminUser }>(`/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(updates) });
+}
+
+export async function resendAdminInvite(id: string) {
+  return apiFetch<{ success: true }>(`/admin/users/${encodeURIComponent(id)}/resend-invite`, { method: 'POST', body: '{}' });
+}
+
+export async function uploadAdminAvatar(id: string, dataUrl: string) {
+  return apiFetch<{ user: AdminUser }>(`/admin/users/${encodeURIComponent(id)}/avatar`, { method: 'POST', body: JSON.stringify({ dataUrl }) });
+}
+
+export async function removeAdminAvatar(id: string) {
+  return apiFetch<{ user: AdminUser }>(`/admin/users/${encodeURIComponent(id)}/avatar`, { method: 'DELETE' });
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

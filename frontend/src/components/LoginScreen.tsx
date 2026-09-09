@@ -63,6 +63,7 @@ export function LoginScreen() {
             </div>
           </div>
           <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-[#176b57] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#115642] disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? 'Signing in...' : 'Log in'}</button>
+          <div className="text-center"><a href="/forgot-password" className="text-sm font-semibold text-[#176b57] hover:underline">Forgot your password?</a></div>
         </form>
       </section>
     </main>

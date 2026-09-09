@@ -1,8 +1,8 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { setInvitationPassword } from '@/lib/api';
+import { setInvitationPassword, updateProfile, storedProfile } from '@/lib/api';
 
 function createPassword() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
@@ -18,6 +18,13 @@ export default function SetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [name, setName] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+
+  useEffect(() => {
+    const profile = storedProfile();
+    if (profile) { setName(profile.name); setJobTitle(profile.job_title || ''); }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,7 +39,7 @@ export default function SetPasswordPage() {
     setError('');
     setIsSubmitting(true);
     try {
-      await setInvitationPassword(password);
+      await setInvitationPassword(password, name, jobTitle);
       router.replace('/dashboard');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'We could not set your password.');
@@ -50,6 +57,8 @@ export default function SetPasswordPage() {
         <p className="mt-2 text-sm leading-6 text-[#464555]">Choose a password for your ChangeFlow account. You can also generate a secure one.</p>
         {error && <div role="alert" className="mt-6 rounded-lg border border-[#e9b8b4] bg-[#fff5f4] p-3 text-sm text-[#9d2c27]">{error}</div>}
         <form onSubmit={handleSubmit} className="mt-7 space-y-5">
+          <div><label htmlFor="display-name" className="mb-2 block text-sm font-medium">Full name</label><input id="display-name" required value={name} onChange={(event) => setName(event.target.value)} className="field" /></div>
+          <div><label htmlFor="job-title" className="mb-2 block text-sm font-medium">Role / title</label><input id="job-title" value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} className="field" /></div>
           <div><label htmlFor="new-password" className="mb-2 block text-sm font-medium">New password</label><div className="flex gap-2"><input id="new-password" required minLength={8} type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} className="field flex-1" /><button type="button" onClick={() => { const generated = createPassword(); setPassword(generated); setConfirmation(generated); setShowPassword(true); }} className="rounded-lg border border-[#c7c4d8] px-3 text-xs font-semibold text-[#3525cd] hover:bg-[#eff4ff]">Generate</button></div><p className="mt-2 text-xs text-[#777587]">At least 8 characters.</p></div>
           <div><label htmlFor="confirm-password" className="mb-2 block text-sm font-medium">Confirm password</label><input id="confirm-password" required minLength={8} type={showPassword ? 'text' : 'password'} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="field" /></div>
           <label className="flex items-center gap-2 text-sm text-[#464555]"><input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} /> Show password</label>

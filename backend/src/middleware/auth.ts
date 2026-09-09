@@ -32,7 +32,7 @@ export async function requireAuth(
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('role, is_active')
+    .select('role, is_active, onboarding_completed')
     .eq('id', user.id)
     .single();
 
@@ -42,6 +42,10 @@ export async function requireAuth(
   }
   if (!profile.is_active) {
     res.status(403).json({ error: 'Your account is inactive. Contact an administrator.' });
+    return;
+  }
+  if (!profile.onboarding_completed) {
+    res.status(403).json({ error: 'Finish setting up your account before continuing.' });
     return;
   }
   req.userRole = profile.role;

@@ -1,7 +1,19 @@
 import { Router, Request, Response } from 'express';
-import { supabaseAdmin, createUserClient } from '../supabase.js';
+import { supabaseAdmin, supabasePublic, createUserClient, presentProfile } from '../supabase.js';
+import { removeAvatar, uploadAvatar } from '../services/avatar.js';
+import { config } from '../config.js';
 
 const router = Router();
+
+router.post('/forgot-password', async (req: Request, res: Response): Promise<void> => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    res.status(400).json({ error: 'Enter a valid email address.' });
+    return;
+  }
+  await supabasePublic.auth.resetPasswordForEmail(email, { redirectTo: `${config.appUrl}/reset-password` });
+  res.json({ success: true });
+});
 
 /** POST /auth/password - finish an invitation by setting the user's password. */
 router.post('/password', async (req: Request, res: Response): Promise<void> => {
@@ -51,7 +63,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     res.status(403).json({ error: 'Your account is inactive. Contact an administrator.' });
     return;
   }
-  res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token, profile });
+  res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token, profile: await presentProfile(profile) });
 });
 
 /**
@@ -100,7 +112,7 @@ router.post('/session', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.json({ profile: newProfile });
+    res.json({ profile: await presentProfile(newProfile) });
     return;
   }
 
@@ -109,7 +121,7 @@ router.post('/session', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  res.json({ profile });
+  res.json({ profile: await presentProfile(profile) });
 });
 
 /**
@@ -123,11 +135,11 @@ router.patch('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const { name, avatar_url } = req.body;
+  const { name, job_title } = req.body;
 
   const updates: Record<string, unknown> = {};
-  if (name !== undefined) updates.name = name;
-  if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+  if (typeof name === 'string' && name.trim()) updates.name = name.trim();
+  if (typeof job_title === 'string') updates.job_title = job_title.trim().slice(0, 100) || null;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: 'No fields to update' });
@@ -146,7 +158,30 @@ router.patch('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  res.json({ profile: data });
+  res.json({ profile: await presentProfile(data) });
+});
+
+router.post('/avatar', async (req: Request, res: Response): Promise<void> => {
+  if (!req.userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  try {
+    const { data: current } = await supabaseAdmin.from('profiles').select('avatar_url').eq('id', req.userId).single();
+    const uploaded = await uploadAvatar(req.userId, typeof req.body?.dataUrl === 'string' ? req.body.dataUrl : '');
+    const { data, error } = await supabaseAdmin.from('profiles').update({ avatar_url: uploaded.path, avatar_path: uploaded.path, avatar_mime_type: uploaded.contentType, avatar_size_bytes: uploaded.size, avatar_updated_at: new Date().toISOString() }).eq('id', req.userId).select().single();
+    if (error) { await removeAvatar(uploaded.path); res.status(500).json({ error: 'The profile picture could not be saved.' }); return; }
+    await removeAvatar(current?.avatar_url);
+    res.json({ profile: await presentProfile(data) });
+  } catch (cause) {
+    res.status(400).json({ error: cause instanceof Error ? cause.message : 'The profile picture could not be uploaded.' });
+  }
+});
+
+router.delete('/avatar', async (req: Request, res: Response): Promise<void> => {
+  if (!req.userId) { res.status(401).json({ error: 'Not authenticated' }); return; }
+  const { data: current } = await supabaseAdmin.from('profiles').select('avatar_url').eq('id', req.userId).single();
+  const { data, error } = await supabaseAdmin.from('profiles').update({ avatar_url: null }).eq('id', req.userId).select().single();
+  if (error) { res.status(400).json({ error: 'The profile picture could not be removed.' }); return; }
+  await removeAvatar(current?.avatar_url);
+  res.json({ profile: await presentProfile(data) });
 });
 
 export default router;
