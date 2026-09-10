@@ -15,23 +15,18 @@ function timeAgo(dateString: string) {
   const date = new Date(dateString);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
 
   if (diffInSeconds < 60) return 'Just now';
   const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
   if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
   const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
   if (diffInHours < 24) return `${diffInHours}h ago`;
   const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   if (diffInDays < 7) return `${diffInDays}d ago`;
   const diffInWeeks = Math.floor(diffInDays / 7);
-  if (diffInWeeks < 4) return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`;
-  const diffInMonths = Math.floor(diffInDays / 30);
-  if (diffInMonths < 12) return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
   if (diffInWeeks < 4) return `${diffInWeeks}w ago`;
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) return `${diffInMonths}mo ago`;
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
@@ -53,28 +48,6 @@ function RequestsContent() {
   const [sortField, setSortField] = useState<SortField>('updated');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [isExporting, setIsExporting] = useState(false);
-
-  const filteredRequests = requests.filter(r => {
-    let matchesStatus = true;
-    if (statusFilter === 'needs_review') {
-      matchesStatus = ['pending', 'reviewing', 'draft'].includes(r.status);
-    } else if (statusFilter === 'awaiting_approval') {
-      matchesStatus = r.status === 'awaiting_approval';
-    } else if (statusFilter === 'in_progress') {
-      matchesStatus = r.status === 'in_progress';
-    } else if (statusFilter === 'completed') {
-      matchesStatus = r.status === 'completed';
-    } else if (statusFilter !== 'all') {
-      matchesStatus = r.status === statusFilter;
-    }
-    const q = searchQuery.toLowerCase();
-    const matchesSearch = !q || 
-      r.id.toLowerCase().includes(q) ||
-      r.title.toLowerCase().includes(q) ||
-      r.client.toLowerCase().includes(q) ||
-      r.clientContact.name.toLowerCase().includes(q);
-    return matchesStatus && matchesSearch;
-  });
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -167,12 +140,6 @@ function RequestsContent() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'in_progress': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      case 'awaiting_approval': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'draft': return 'bg-slate-50 text-slate-700 border-slate-200';
-      case 'declined': return 'bg-red-50 text-red-700 border-red-200';
-      case 'approved': return 'bg-teal-50 text-teal-700 border-teal-200';
       case 'completed':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'in_progress':
@@ -184,7 +151,7 @@ function RequestsContent() {
       case 'declined':
         return 'bg-rose-50 text-rose-700 border-rose-200';
       case 'approved':
-        return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+        return 'bg-teal-50 text-teal-700 border-teal-200';
       case 'reviewing':
         return 'bg-violet-50 text-violet-700 border-violet-200';
       default:
@@ -194,7 +161,6 @@ function RequestsContent() {
 
   const renderSortIndicator = (field: SortField) => {
     if (sortField !== field) {
-      return <span className="material-symbols-outlined text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">unfold_more</span>;
       return (
         <span className="material-symbols-outlined text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
           unfold_more
@@ -225,19 +191,10 @@ function RequestsContent() {
                 <span className="material-symbols-outlined text-[#4f46e5]">list_alt</span>
                 All Requests
               </h1>
-              <p className="text-sm text-[#464555] mt-1">Manage and track all client change requests.</p>
               <p className="text-sm text-[#464555] mt-1">
                 Manage, estimate, and dispatch change requests across all agency clients.
               </p>
             </div>
-            <button
-              onClick={() => setIsSlideoverOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4f46e5] hover:bg-[#3525cd] text-white shadow-sm shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 text-xs font-semibold active:scale-95 group"
-            >
-              <span className="material-symbols-outlined text-lg group-hover:rotate-90 transition-transform duration-300">add</span>
-              <span>New Request</span>
-              <kbd className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono font-medium">N</kbd>
-            </button>
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -347,9 +304,6 @@ function RequestsContent() {
                       </div>
                     </th>
                     <th className="py-3.5 px-4 font-semibold">Status</th>
-                    <th className="py-3.5 px-4 font-semibold">Priority</th>
-                    <th className="py-3.5 px-4 font-semibold">Estimate</th>
-                    <th className="py-3.5 px-4 font-semibold">Updated</th>
                     <th
                       className="py-3.5 px-4 font-semibold cursor-pointer group hover:text-[#0b1c30]"
                       onClick={() => handleSort('priority')}
@@ -476,8 +430,6 @@ function RequestsContent() {
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex flex-col">
-                            <span className="font-medium text-[#0b1c30] text-sm">{req.clientContact.name}</span>
-                            <span className="text-[#777587] text-[11px]">{req.client}</span>
                             <span className="font-medium text-[#0b1c30] text-sm font-mono">
                               ${req.estimatedCost.toLocaleString()}
                             </span>
@@ -485,41 +437,21 @@ function RequestsContent() {
                               {req.estimatedHours}h @ ${req.hourlyRate}/hr
                             </span>
                           </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium border ${getStatusColor(req.status)}`}>
-                          {getStatusLabel(req.status)}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border ${getPriorityColor(req.urgency)}`}>
-                          {req.urgency === 'Critical' && <span className="material-symbols-outlined text-[12px]">warning</span>}
-                          {req.urgency}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-[#0b1c30] text-sm">${req.estimatedCost.toLocaleString()}</span>
-                          <span className="text-[#777587] text-[11px]">{req.estimatedHours}h @ ${req.hourlyRate}/hr</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-[#464555] text-sm">
-                        {timeAgo(req.updatedAt || req.createdAt)}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <Link href={`/requests/${req.id}`} className="inline-flex items-center justify-center p-1.5 rounded-lg text-[#4f46e5] hover:bg-indigo-50 transition-colors" aria-label="View request">
-                          <span className="material-symbols-outlined text-[20px]">chevron_right</span>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="py-3.5 px-4 text-[#464555] text-sm">
+                          {timeAgo(req.updatedAt || req.createdAt)}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <Link href={`/requests/${req.id}`} className="inline-flex items-center justify-center p-1.5 rounded-lg text-[#4f46e5] hover:bg-indigo-50 transition-colors" aria-label="View request">
+                            <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
                   ) : (
                     <tr>
                       <td colSpan={7} className="py-16 text-center">
                         <div className="flex flex-col items-center justify-center text-[#777587]">
-                          <span className="material-symbols-outlined text-4xl mb-2 text-slate-300">search_off</span>
-                          <p className="text-sm font-medium">No requests found</p>
-                          <p className="text-xs mt-1">Try adjusting your search or filters.</p>
                           <span className="material-symbols-outlined text-4xl mb-2 text-slate-300">
                             search_off
                           </span>
