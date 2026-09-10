@@ -203,6 +203,16 @@
   animation: pop-velocity-point 250ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+.dashboard-reveal {
+  opacity: 0;
+  animation: dashboard-reveal 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes dashboard-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .velocity-point:nth-of-type(2) { animation-delay: 150ms; }
 .velocity-point:nth-of-type(3) { animation-delay: 220ms; }
 .velocity-point:nth-of-type(4) { animation-delay: 290ms; }
@@ -252,6 +262,10 @@
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+  .dashboard-reveal {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }
 
