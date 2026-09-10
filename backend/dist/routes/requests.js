@@ -54,7 +54,7 @@ router.get('/export', async (req, res) => {
         .from('change_requests')
         .select('reference_code, title, status, priority, hours, cost, source_channel, created_at, clients(company_name, contact_name)');
     if (status === 'needs_review') {
-        query = query.in('status', ['draft', 'pending']);
+        query = query.in('status', ['draft', 'pending', 'reviewing']);
     }
     else if (status) {
         query = query.eq('status', status);
@@ -79,7 +79,18 @@ router.get('/export', async (req, res) => {
         source_channel: r.source_channel,
         created_at: r.created_at,
     }));
-    const columns = ['reference_code', 'title', 'company_name', 'contact_name', 'status', 'priority', 'hours', 'cost', 'source_channel', 'created_at'];
+    const columns = [
+        'reference_code',
+        'title',
+        'company_name',
+        'contact_name',
+        'status',
+        'priority',
+        'hours',
+        'cost',
+        'source_channel',
+        'created_at',
+    ];
     const csv = buildCsv(rows, columns);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="change-requests-export.csv"');
@@ -104,7 +115,7 @@ router.get('/', async (req, res) => {
         .from('change_requests')
         .select('*, clients(company_name, contact_name, contact_email)', { count: 'exact' });
     if (status === 'needs_review') {
-        query = query.in('status', ['draft', 'pending']);
+        query = query.in('status', ['draft', 'pending', 'reviewing']);
     }
     else if (status) {
         query = query.eq('status', status);
@@ -134,20 +145,39 @@ router.get('/:id', async (req, res) => {
         .or(`id.eq.${id},reference_code.eq.${id}`)
         .single();
     if (error || !request) {
-        res.status(404).json({ error: 'Request not found' });
+        res.status(404).json({ error: `Change request "${id}" was not found. Verify the reference code and try again.` });
         return;
     }
-    // Parallel fetches
-    const [deliverables, exclusions, notes, approvalLink, approvalResponse, client, project] = await Promise.all([
-        supabaseAdmin.from('deliverables').select('*').eq('request_id', id),
-        supabaseAdmin.from('exclusions').select('*').eq('request_id', id),
-        supabaseAdmin.from('notes').select('*, profiles(name, avatar_url)').eq('request_id', id).order('created_at', { ascending: false }),
-        supabaseAdmin.from('approval_links').select('*').eq('request_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabaseAdmin.from('approval_responses').select('*').eq('request_id', id).maybeSingle(),
+    // Parallel fetches using the authoritative UUID (request.id)
+    const [deliverables, exclusions, notes, approvalLink, approvalResponse, client, project, activityEvents] = await Promise.all([
+        supabaseAdmin.from('deliverables').select('*').eq('request_id', request.id),
+        supabaseAdmin.from('exclusions').select('*').eq('request_id', request.id),
+        supabaseAdmin
+            .from('notes')
+            .select('*, profiles(name, avatar_url)')
+            .eq('request_id', request.id)
+            .order('created_at', { ascending: false }),
+        supabaseAdmin
+            .from('approval_links')
+            .select('*')
+            .eq('request_id', request.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        supabaseAdmin
+            .from('approval_responses')
+            .select('*')
+            .eq('request_id', request.id)
+            .maybeSingle(),
         supabaseAdmin.from('clients').select('*').eq('id', request.client_id).single(),
         request.project_id
             ? supabaseAdmin.from('projects').select('*').eq('id', request.project_id).single()
             : Promise.resolve({ data: null }),
+        supabaseAdmin
+            .from('activity_events')
+            .select('*')
+            .eq('request_id', request.id)
+            .order('created_at', { ascending: true }),
     ]);
     res.json({
         ...request,
@@ -158,6 +188,7 @@ router.get('/:id', async (req, res) => {
         notes: notes.data ?? [],
         approval_link: approvalLink.data,
         approval_response: approvalResponse.data,
+        activity_events: activityEvents.data ?? [],
     });
 });
 // ---------------------------------------------------------------------------
@@ -167,7 +198,7 @@ router.post('/', async (req, res) => {
     const userId = req.userId;
     const body = req.body;
     if (!body.client_id || !body.title) {
-        res.status(400).json({ error: 'client_id and title are required' });
+        res.status(400).json({ error: 'A client and request title are required to create a change request.' });
         return;
     }
     // Generate reference code
@@ -249,7 +280,7 @@ router.patch('/:id', async (req, res) => {
     const { data, error } = await supabaseAdmin
         .from('change_requests')
         .update(updates)
-        .eq('id', id)
+        .or(`id.eq.${id},reference_code.eq.${id}`)
         .select()
         .single();
     if (error) {
@@ -267,6 +298,22 @@ router.patch('/:id/estimate', async (req, res) => {
     const id = req.params.id;
     const userId = req.userId;
     const body = req.body;
+    if (body.hours !== undefined && (typeof body.hours !== 'number' || body.hours < 0 || isNaN(body.hours))) {
+        res.status(400).json({ error: 'Estimated hours must be a valid non-negative number.' });
+        return;
+    }
+    if (body.hourly_rate !== undefined && (typeof body.hourly_rate !== 'number' || body.hourly_rate < 0 || isNaN(body.hourly_rate))) {
+        res.status(400).json({ error: 'Hourly rate must be a valid non-negative number.' });
+        return;
+    }
+    // Find request by id or reference code
+    const { data: targetReq } = await supabaseAdmin
+        .from('change_requests')
+        .select('id, reference_code')
+        .or(`id.eq.${id},reference_code.eq.${id}`)
+        .single();
+    const targetId = targetReq?.id || id;
+    const refCode = targetReq?.reference_code || id;
     const now = new Date().toISOString();
     const { data: updated, error: updateError } = await supabaseAdmin
         .from('change_requests')
@@ -278,35 +325,37 @@ router.patch('/:id/estimate', async (req, res) => {
         timeline_days: body.timeline_days,
         updated_at: now,
     })
-        .eq('id', id)
+        .eq('id', targetId)
         .select()
         .single();
     if (updateError || !updated) {
-        res.status(500).json({ error: updateError?.message ?? 'Failed to update estimate' });
+        res.status(500).json({
+            error: updateError?.message ?? `Failed to update estimate for ${refCode}. Verify the input fields and try again.`,
+        });
         return;
     }
     await invalidateCache('stats:summary', 'stats:status-breakdown');
     await invalidateCachePattern('requests:list:*');
     // Replace deliverables
-    await supabaseAdmin.from('deliverables').delete().eq('request_id', id);
+    await supabaseAdmin.from('deliverables').delete().eq('request_id', targetId);
     if (body.deliverables?.length) {
         await supabaseAdmin.from('deliverables').insert(body.deliverables.map((d) => ({
-            request_id: id,
+            request_id: targetId,
             description: d.description,
             hours: d.hours,
             category: d.category,
         })));
     }
     // Replace exclusions
-    await supabaseAdmin.from('exclusions').delete().eq('request_id', id);
+    await supabaseAdmin.from('exclusions').delete().eq('request_id', targetId);
     if (body.exclusions?.length) {
         await supabaseAdmin.from('exclusions').insert(body.exclusions.map((e) => ({
-            request_id: id,
+            request_id: targetId,
             description: e,
         })));
     }
     const actorName = await getActorName(userId);
-    await logActivity(id, 'estimate_updated', {
+    await logActivity(targetId, 'estimate_updated', {
         hourly_rate: body.hourly_rate,
         hours: body.hours,
         cost: body.cost,
@@ -314,7 +363,7 @@ router.patch('/:id/estimate', async (req, res) => {
     res.json(updated);
 });
 // ---------------------------------------------------------------------------
-// POST /:id/send-for-approval
+// POST /:id/send-for-approval — submit for internal developer approval
 // ---------------------------------------------------------------------------
 router.post('/:id/send-for-approval', async (req, res) => {
     const id = req.params.id;
@@ -323,48 +372,95 @@ router.post('/:id/send-for-approval', async (req, res) => {
         const { data: request, error: reqError } = await supabaseAdmin
             .from('change_requests')
             .select('*')
-            .eq('id', id)
+            .or(`id.eq.${id},reference_code.eq.${id}`)
             .single();
         if (reqError || !request) {
-            res.status(404).json({ error: 'Request not found' });
+            res.status(404).json({ error: `Change request "${id}" was not found.` });
             return;
         }
-        validateTransition(request.status, 'awaiting_approval');
+        validateTransition(request.status, 'reviewing');
         if (!request.hourly_rate || !request.hours || !request.target_delivery_date) {
             res.status(400).json({
-                error: 'Estimate must include hourly_rate, hours, and target_delivery_date before sending for approval.',
+                error: `Estimate for ${request.reference_code} is incomplete. Hourly rate, estimated hours, and target delivery date are all required before sending for approval.`,
             });
             return;
         }
+        const now = new Date().toISOString();
+        await supabaseAdmin
+            .from('change_requests')
+            .update({ status: 'reviewing', updated_at: now })
+            .eq('id', request.id);
+        await invalidateCache('stats:summary', 'stats:status-breakdown');
+        await invalidateCachePattern('requests:list:*');
+        const actorName = await getActorName(userId);
+        await logActivity(request.id, 'submitted_for_review', { from: request.status, to: 'reviewing' }, actorName);
+        res.json({ success: true, status: 'reviewing' });
+    }
+    catch (err) {
+        if (err instanceof TransitionError) {
+            res.status(409).json({ error: err.message });
+            return;
+        }
+        throw err;
+    }
+});
+// ---------------------------------------------------------------------------
+// POST /:id/approve-review — approve internally and send to the client
+// ---------------------------------------------------------------------------
+router.post('/:id/approve-review', async (req, res) => {
+    const id = req.params.id;
+    const userId = req.userId;
+    if (req.userRole !== 'admin') {
+        res.status(403).json({ error: 'Only admin users can approve requests for client approval.' });
+        return;
+    }
+    try {
+        const { data: request, error: reqError } = await supabaseAdmin
+            .from('change_requests')
+            .select('*')
+            .or(`id.eq.${id},reference_code.eq.${id}`)
+            .single();
+        if (reqError || !request) {
+            res.status(404).json({ error: `Change request "${id}" was not found.` });
+            return;
+        }
+        validateTransition(request.status, 'awaiting_approval');
         const { data: client } = await supabaseAdmin
             .from('clients')
             .select('*')
             .eq('id', request.client_id)
             .single();
         if (!client) {
-            res.status(404).json({ error: 'Client not found' });
+            res.status(404).json({ error: `Client for ${request.reference_code} was not found.` });
             return;
         }
         const token = generateApprovalToken(client.company_name);
         const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
         const now = new Date().toISOString();
-        await supabaseAdmin.from('approval_links').insert({
-            request_id: id,
+        const { error: linkError } = await supabaseAdmin.from('approval_links').insert({
+            request_id: request.id,
             token,
             expires_at: expiresAt,
             created_at: now,
         });
-        await supabaseAdmin
+        if (linkError) {
+            res.status(500).json({ error: linkError.message });
+            return;
+        }
+        const { data: updated, error: updateError } = await supabaseAdmin
             .from('change_requests')
             .update({ status: 'awaiting_approval', updated_at: now })
-            .eq('id', id);
+            .eq('id', request.id)
+            .select()
+            .single();
+        if (updateError || !updated) {
+            res.status(500).json({ error: updateError?.message ?? 'Failed to approve internal review.' });
+            return;
+        }
         await invalidateCache('stats:summary', 'stats:status-breakdown');
         await invalidateCachePattern('requests:list:*');
         const actorName = await getActorName(userId);
-        await logActivity(id, 'sent_for_approval', {
-            client_name: client.company_name,
-            contact_email: client.contact_email,
-        }, actorName);
+        await logActivity(request.id, 'review_approved', { from: 'reviewing', to: 'awaiting_approval' }, actorName);
         const approvalUrl = `${config.appUrl}/approval/${token}`;
         try {
             await sendApprovalEmail(client.contact_email, client.contact_name, request.title, request.reference_code, approvalUrl);
@@ -372,7 +468,66 @@ router.post('/:id/send-for-approval', async (req, res) => {
         catch {
             console.error('Failed to send approval email');
         }
-        res.json({ token, approval_url: approvalUrl });
+        res.json({ ...updated, token, approval_url: approvalUrl });
+    }
+    catch (err) {
+        if (err instanceof TransitionError) {
+            res.status(409).json({ error: err.message });
+            return;
+        }
+        throw err;
+    }
+});
+// ---------------------------------------------------------------------------
+// POST /:id/request-review-changes — send internal review back for changes
+// ---------------------------------------------------------------------------
+router.post('/:id/request-review-changes', async (req, res) => {
+    const id = req.params.id;
+    const userId = req.userId;
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (req.userRole !== 'admin') {
+        res.status(403).json({ error: 'Only admin users can request review changes.' });
+        return;
+    }
+    if (!reason) {
+        res.status(400).json({ error: 'A reason is required when sending a request back for changes.' });
+        return;
+    }
+    try {
+        const { data: request, error: reqError } = await supabaseAdmin
+            .from('change_requests')
+            .select('id, reference_code, status')
+            .or(`id.eq.${id},reference_code.eq.${id}`)
+            .single();
+        if (reqError || !request) {
+            res.status(404).json({ error: `Change request "${id}" was not found.` });
+            return;
+        }
+        validateTransition(request.status, 'pending');
+        const now = new Date().toISOString();
+        const { error: updateError } = await supabaseAdmin
+            .from('change_requests')
+            .update({ status: 'pending', updated_at: now })
+            .eq('id', request.id);
+        if (updateError) {
+            res.status(500).json({ error: updateError.message });
+            return;
+        }
+        const { error: noteError } = await supabaseAdmin.from('notes').insert({
+            request_id: request.id,
+            author_id: userId || null,
+            content: `Review changes requested: ${reason}`,
+            created_at: now,
+        });
+        if (noteError) {
+            res.status(500).json({ error: noteError.message });
+            return;
+        }
+        await invalidateCache('stats:summary', 'stats:status-breakdown');
+        await invalidateCachePattern('requests:list:*');
+        const actorName = await getActorName(userId);
+        await logActivity(request.id, 'review_changes_requested', { reason, from: 'reviewing', to: 'pending' }, actorName);
+        res.json({ success: true, status: 'pending' });
     }
     catch (err) {
         if (err instanceof TransitionError) {
@@ -392,10 +547,10 @@ router.post('/:id/advance', async (req, res) => {
         const { data: request, error: reqError } = await supabaseAdmin
             .from('change_requests')
             .select('*')
-            .eq('id', id)
+            .or(`id.eq.${id},reference_code.eq.${id}`)
             .single();
         if (reqError || !request) {
-            res.status(404).json({ error: 'Request not found' });
+            res.status(404).json({ error: `Change request "${id}" was not found.` });
             return;
         }
         let targetStatus;
@@ -409,7 +564,9 @@ router.post('/:id/advance', async (req, res) => {
             eventType = 'marked_complete';
         }
         else {
-            res.status(409).json({ error: `Cannot advance from status "${request.status}"` });
+            res.status(409).json({
+                error: `Cannot advance ${request.reference_code} from status "${request.status}". Only approved requests can be marked in progress, and only in-progress requests can be completed.`,
+            });
             return;
         }
         validateTransition(request.status, targetStatus);
@@ -417,7 +574,7 @@ router.post('/:id/advance', async (req, res) => {
         const { data: updated, error } = await supabaseAdmin
             .from('change_requests')
             .update({ status: targetStatus, updated_at: now })
-            .eq('id', id)
+            .eq('id', request.id)
             .select()
             .single();
         if (error) {
@@ -427,7 +584,7 @@ router.post('/:id/advance', async (req, res) => {
         await invalidateCache('stats:summary', 'stats:status-breakdown');
         await invalidateCachePattern('requests:list:*');
         const actorName = await getActorName(userId);
-        await logActivity(id, eventType, { from: request.status, to: targetStatus }, actorName);
+        await logActivity(request.id, eventType, { from: request.status, to: targetStatus }, actorName);
         res.json(updated);
     }
     catch (err) {
@@ -446,13 +603,19 @@ router.post('/:id/notes', async (req, res) => {
     const userId = req.userId;
     const { content } = req.body;
     if (!content?.trim()) {
-        res.status(400).json({ error: 'Note content is required' });
+        res.status(400).json({ error: 'Note content cannot be blank. Enter a message before posting.' });
         return;
     }
+    const { data: request } = await supabaseAdmin
+        .from('change_requests')
+        .select('id, reference_code')
+        .or(`id.eq.${id},reference_code.eq.${id}`)
+        .single();
+    const targetId = request?.id || id;
     const { data: note, error } = await supabaseAdmin
         .from('notes')
         .insert({
-        request_id: id,
+        request_id: targetId,
         author_id: userId || null,
         content: content.trim(),
         created_at: new Date().toISOString(),
@@ -464,7 +627,7 @@ router.post('/:id/notes', async (req, res) => {
         return;
     }
     const actorName = await getActorName(userId);
-    await logActivity(id, 'note_added', { preview: content.trim().slice(0, 100) }, actorName);
+    await logActivity(targetId, 'note_added', { preview: content.trim().slice(0, 100) }, actorName);
     res.status(201).json(note);
 });
 // ---------------------------------------------------------------------------
@@ -472,10 +635,16 @@ router.post('/:id/notes', async (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/:id/activity', async (req, res) => {
     const id = req.params.id;
+    const { data: request } = await supabaseAdmin
+        .from('change_requests')
+        .select('id')
+        .or(`id.eq.${id},reference_code.eq.${id}`)
+        .single();
+    const targetId = request?.id || id;
     const { data: events, error } = await supabaseAdmin
         .from('activity_events')
         .select('*')
-        .eq('request_id', id)
+        .eq('request_id', targetId)
         .order('created_at', { ascending: true });
     if (error) {
         res.status(500).json({ error: error.message });

@@ -1,4 +1,4 @@
-export type RequestStatus = 'draft' | 'pending' | 'awaiting_approval' | 'approved' | 'in_progress' | 'completed' | 'declined';
+export type RequestStatus = 'draft' | 'pending' | 'reviewing' | 'awaiting_approval' | 'approved' | 'in_progress' | 'completed' | 'declined';
 export type Priority = 'standard' | 'priority' | 'critical';
 export type SourceChannel = 'call' | 'text' | 'meeting' | 'email';
 export type DeliverableCategory = 'Frontend' | 'Backend' | 'Database / API' | 'QA & DevOps';

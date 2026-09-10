@@ -1,14 +1,23 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel } from './types';
-import { API_BASE_URL, addRequestNote, createRequest, fetchActivity, fetchRequests, storedProfile, updateRequestStatus } from './api';
+import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel, ScopeDeliverable } from './types';
+import {
+  API_BASE_URL,
+  addRequestNote,
+  createRequest,
+  fetchActivity,
+  fetchRequests,
+  storedProfile,
+  updateRequestStatus,
+  updateEstimate,
+} from './api';
 
 export function getNextAction(status: RequestStatus): string {
   switch (status) {
-    case 'draft': return 'Review and add estimate';
-    case 'reviewing':
-    case 'pending': return 'Send to client for approval';
+    case 'draft':
+    case 'pending': return 'Submit for developer approval';
+    case 'reviewing': return 'Waiting for developer approval';
     case 'awaiting_approval': return 'Waiting for client response';
     case 'approved': return 'Begin work';
     case 'in_progress': return 'Complete and deliver';
@@ -21,8 +30,8 @@ export function getNextAction(status: RequestStatus): string {
 export function getStatusLabel(status: RequestStatus): string {
   switch (status) {
     case 'draft': return 'New';
-    case 'reviewing':
-    case 'pending': return 'Reviewing';
+    case 'reviewing': return 'Reviewing';
+    case 'pending': return 'Pending';
     case 'awaiting_approval': return 'Awaiting approval';
     case 'approved': return 'Approved';
     case 'in_progress': return 'In progress';
@@ -48,6 +57,13 @@ export const DEFAULT_USER: CurrentUser = {
   avatarUrl: '',
 };
 
+export interface ToastState {
+  title: string;
+  subtitle?: string;
+  visible: boolean;
+  type?: 'success' | 'error' | 'info';
+}
+
 interface AppContextType {
   requests: ChangeRequest[];
   getRequestById: (id: string) => ChangeRequest | undefined;
@@ -56,14 +72,27 @@ interface AppContextType {
   updateStatus: (id: string, status: RequestStatus) => void;
   approveRequest: (id: string, approverName: string, confirmationCode?: string) => void;
   declineRequest: (id: string, notes: string) => void;
+  saveEstimate: (
+    id: string,
+    estimate: {
+      hourly_rate?: number;
+      hours?: number;
+      cost?: number;
+      target_delivery_date?: string;
+      timeline_days?: number;
+      deliverables?: Array<{ description: string; hours: number; category: string }>;
+      exclusions?: string[];
+    }
+  ) => Promise<void>;
+  reloadRequests: () => Promise<void>;
   isSlideoverOpen: boolean;
   setIsSlideoverOpen: (open: boolean) => void;
   isProfileModalOpen: boolean;
   setIsProfileModalOpen: (open: boolean) => void;
   globalSearchQuery: string;
   setGlobalSearchQuery: (query: string) => void;
-  toast: { title: string; subtitle?: string; visible: boolean } | null;
-  showToast: (title: string, subtitle?: string) => void;
+  toast: ToastState | null;
+  showToast: (title: string, subtitle?: string, type?: 'success' | 'error' | 'info') => void;
   hideToast: () => void;
   currentUser: CurrentUser;
   updateCurrentUser: (user: Partial<CurrentUser>) => void;
@@ -79,7 +108,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isSlideoverOpen, setIsSlideoverOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-  const [toast, setToast] = useState<{ title: string; subtitle?: string; visible: boolean } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
     const profile = storedProfile();
     return profile ? { id: profile.id, name: profile.name, role: profile.role, jobTitle: profile.job_title || '', avatarUrl: profile.avatar_url || '' } : DEFAULT_USER;
@@ -87,6 +116,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Array<{ id: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }>>([]);
+
+  const reloadRequests = async () => {
+    try {
+      const [loadedRequests, activity] = await Promise.all([fetchRequests(), fetchActivity()]);
+      setRequests(loadedRequests);
+      setNotifications(activity.events);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to load live data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -114,14 +156,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateCurrentUser = (updates: Partial<CurrentUser>) => {
     const updated = { ...currentUser, ...updates };
     setCurrentUser(updated);
-    // Profile persistence is handled by the authenticated profile API.
   };
 
-  // Save changes
   const saveRequests = (newReqs: ChangeRequest[]) => setRequests(newReqs);
 
-  const showToast = (title: string, subtitle?: string) => {
-    setToast({ title, subtitle, visible: true });
+  const showToast = (title: string, subtitle?: string, type?: 'success' | 'error' | 'info') => {
+    setToast({ title, subtitle, visible: true, type });
     setTimeout(() => {
       setToast(prev => (prev ? { ...prev, visible: false } : null));
     }, 4000);
@@ -132,12 +172,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getRequestById = (id: string) => {
-    return requests.find(r => r.id.toLowerCase() === id.toLowerCase());
+    return requests.find(r => r.id.toLowerCase() === id.toLowerCase() || (r.databaseId && r.databaseId.toLowerCase() === id.toLowerCase()));
   };
 
   const addRequest = async (data: Partial<ChangeRequest>): Promise<void> => {
     if (!data.databaseId || !data.title) {
-      showToast('Request not created', 'Choose a database client and enter a title.');
+      showToast('Request not created', 'Choose a database client and enter a title.', 'error');
       return;
     }
     try {
@@ -154,30 +194,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         timeline_days: data.targetTurnaroundDays,
       });
       setRequests(await fetchRequests());
-      showToast('Request created', `${data.title} was saved to the database.`);
+      showToast('Request created', `${data.title} was saved to the database.`, 'success');
     } catch (cause) {
-      showToast('Request not created', cause instanceof Error ? cause.message : 'Unable to save request.');
+      showToast('Request not created', cause instanceof Error ? cause.message : 'Unable to save request.', 'error');
     }
   };
 
   const updateRequest = (id: string, updates: Partial<ChangeRequest>) => {
-    const updated = requests.map(r => r.id.toLowerCase() === id.toLowerCase() ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r);
+    const updated = requests.map(r => (r.id.toLowerCase() === id.toLowerCase() || r.databaseId === id) ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r);
     saveRequests(updated);
   };
 
   const updateStatus = (id: string, status: RequestStatus) => {
     void updateRequestStatus(id, status).then(async () => {
       setRequests(await fetchRequests());
-      showToast('Status updated', `${id} is now ${getStatusLabel(status).toLowerCase()}.`);
-    }).catch((cause) => showToast('Update failed', cause instanceof Error ? cause.message : 'Unable to update status.'));
+      showToast('Status updated', `${id} is now ${getStatusLabel(status).toLowerCase()}.`, 'success');
+    }).catch((cause) => showToast('Update failed', cause instanceof Error ? cause.message : 'Unable to update status.', 'error'));
+  };
+
+  const saveEstimateHandler = async (
+    id: string,
+    estimate: {
+      hourly_rate?: number;
+      hours?: number;
+      cost?: number;
+      target_delivery_date?: string;
+      timeline_days?: number;
+      deliverables?: Array<{ description: string; hours: number; category: string }>;
+      exclusions?: string[];
+    }
+  ) => {
+    try {
+      await updateEstimate(id, estimate);
+      await reloadRequests();
+      showToast('Estimate Saved', 'Commercial scope and deliverables updated successfully.', 'success');
+    } catch (cause) {
+      showToast('Save Failed', cause instanceof Error ? cause.message : 'Unable to save estimate.', 'error');
+      throw cause;
+    }
   };
 
   const approveRequest = (id: string, approverName: string, confirmationCode = `CF-${Math.floor(9000 + Math.random() * 1000)}`) => {
-    showToast('Approval requires the live approval link', `${approverName} must approve from the client portal.`);
+    showToast('Approval requires the live approval link', `${approverName} must approve from the client portal.`, 'info');
   };
 
   const declineRequest = (id: string, notes: string) => {
-    showToast('Feedback requires the live approval link', notes);
+    showToast('Feedback requires the live approval link', notes, 'info');
   };
 
   return (
@@ -190,6 +252,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateStatus,
         approveRequest,
         declineRequest,
+        saveEstimate: saveEstimateHandler,
+        reloadRequests,
         isSlideoverOpen,
         setIsSlideoverOpen,
         isProfileModalOpen,

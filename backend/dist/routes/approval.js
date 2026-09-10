@@ -20,7 +20,13 @@ async function resolveToken(token) {
             .eq('reference_code', token)
             .single();
         if (request) {
-            const result = await supabaseAdmin.from('approval_links').select('*').eq('request_id', request.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+            const result = await supabaseAdmin
+                .from('approval_links')
+                .select('*')
+                .eq('request_id', request.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
             link = result.data;
             error = result.error;
         }
@@ -72,11 +78,18 @@ router.get('/:token', async (req, res) => {
     const token = req.params.token;
     const resolved = await resolveToken(token);
     if (resolved.state === 'not_found') {
-        res.status(404).json({ state: 'not_found', error: 'Invalid approval link' });
+        res.status(404).json({
+            state: 'not_found',
+            error: 'Invalid approval link. Please check the URL or contact your agency lead for a new link.',
+        });
         return;
     }
     if (resolved.state === 'expired') {
-        res.json({ state: 'expired' });
+        res.json({
+            state: 'expired',
+            expires_at: resolved.link?.expires_at,
+            error: 'This approval link has expired. Contact your project lead to request a new link.',
+        });
         return;
     }
     if (resolved.state === 'already_responded') {
@@ -90,6 +103,7 @@ router.get('/:token', async (req, res) => {
                     status: resolved.request.status,
                 }
                 : null,
+            error: 'This change request has already received a response and cannot be modified.',
         });
         return;
     }
@@ -147,13 +161,12 @@ router.post('/:token/approve', async (req, res) => {
     const resolved = await resolveToken(token);
     if (resolved.state !== 'valid') {
         const statusCode = resolved.state === 'not_found' ? 404 : 409;
-        res.status(statusCode).json({
-            error: resolved.state === 'not_found'
-                ? 'Invalid approval link'
-                : resolved.state === 'expired'
-                    ? 'This approval link has expired'
-                    : 'This request has already been responded to',
-        });
+        const errorMsg = resolved.state === 'not_found'
+            ? 'Invalid approval link. Please check the URL or contact your agency lead.'
+            : resolved.state === 'expired'
+                ? 'This approval link has expired. Please request an updated authorization link from your project lead.'
+                : 'This request has already received a response and cannot be modified again.';
+        res.status(statusCode).json({ error: errorMsg });
         return;
     }
     const { request, client } = resolved;
@@ -223,13 +236,12 @@ router.post('/:token/decline', async (req, res) => {
     const resolved = await resolveToken(token);
     if (resolved.state !== 'valid') {
         const statusCode = resolved.state === 'not_found' ? 404 : 409;
-        res.status(statusCode).json({
-            error: resolved.state === 'not_found'
-                ? 'Invalid approval link'
-                : resolved.state === 'expired'
-                    ? 'This approval link has expired'
-                    : 'This request has already been responded to',
-        });
+        const errorMsg = resolved.state === 'not_found'
+            ? 'Invalid approval link. Please check the URL or contact your agency lead.'
+            : resolved.state === 'expired'
+                ? 'This approval link has expired. Please request an updated authorization link from your project lead.'
+                : 'This request has already received a response and cannot be modified again.';
+        res.status(statusCode).json({ error: errorMsg });
         return;
     }
     const { request, client } = resolved;

@@ -15,8 +15,6 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
         e.preventDefault();
         if (isOpen) {
           onClose();
-        } else {
-          // Open
         }
       }
       if (e.key === 'Escape' && isOpen) {
@@ -47,39 +45,39 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
       },
     },
     {
-      title: 'Agency Dashboard',
+      title: 'Dashboard',
       subtitle: 'Overview of all requests, velocity, and pipeline',
       icon: 'dashboard',
       action: () => {
         onClose();
-        router.push('/');
+        router.push('/dashboard');
       },
     },
     {
-      title: 'Mobile Client Approval View',
-      subtitle: 'Preview tokenized client authorization screen for CR-1042',
-      icon: 'smartphone',
+      title: 'All Requests',
+      subtitle: 'Browse, search, sort, and manage all change requests',
+      icon: 'list_alt',
       action: () => {
         onClose();
-        router.push('/approval/CR-1042');
+        router.push('/requests');
       },
     },
     {
-      title: 'Design System & Spec Reference',
-      subtitle: 'Inspect design tokens, colors, typography and spec',
-      icon: 'palette',
+      title: 'Reports and Analytics',
+      subtitle: 'View velocity, financial estimates, and request breakdown',
+      icon: 'bar_chart',
       action: () => {
         onClose();
-        router.push('/design-system');
+        router.push('/reports');
       },
     },
     {
-      title: 'Agency Sign In',
-      subtitle: 'Testing environment portal authentication screen',
-      icon: 'login',
+      title: 'Administration',
+      subtitle: 'Manage user access, invitations, and client directory',
+      icon: 'manage_accounts',
       action: () => {
         onClose();
-        router.push('/login');
+        router.push('/admin');
       },
     },
   ];
@@ -199,4 +197,3 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
     </div>
   );
 }
-

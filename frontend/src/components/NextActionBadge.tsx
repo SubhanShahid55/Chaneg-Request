@@ -14,15 +14,19 @@ export function NextActionBadge({ status, className = '' }: NextActionBadgeProps
 
   switch (status) {
     case 'draft':
-      text = 'Review and add estimate'
+      text = 'Submit for developer approval'
       icon = 'edit'
       colorClasses = 'bg-amber-50 text-amber-800 border-amber-200'
       break
-    case 'reviewing':
     case 'pending':
-      text = 'Send to client for approval'
+      text = 'Submit for developer approval'
       icon = 'send'
       colorClasses = 'bg-amber-50 text-amber-800 border-amber-200'
+      break
+    case 'reviewing':
+      text = 'Waiting for developer approval'
+      icon = 'hourglass_top'
+      colorClasses = 'bg-violet-50 text-violet-700 border-violet-200'
       break
     case 'awaiting_approval':
       text = 'Waiting for client response'

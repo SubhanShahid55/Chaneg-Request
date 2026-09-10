@@ -3,6 +3,7 @@
 export type RequestStatus =
   | 'draft'
   | 'pending'
+  | 'reviewing'
   | 'awaiting_approval'
   | 'approved'
   | 'in_progress'

@@ -3,8 +3,9 @@
  * The key is the current status; the value is the list of statuses it can move to.
  */
 const TRANSITIONS = {
-    draft: ['awaiting_approval'],
-    pending: ['awaiting_approval'],
+    draft: ['reviewing'],
+    pending: ['reviewing'],
+    reviewing: ['awaiting_approval', 'pending'],
     awaiting_approval: ['approved', 'declined'],
     approved: ['in_progress'],
     in_progress: ['completed'],

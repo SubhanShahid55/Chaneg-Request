@@ -44,6 +44,12 @@ export async function invalidateCachePattern(pattern) {
     const keys = [];
     for await (const key of redis.scanIterator({ MATCH: pattern, COUNT: 100 })) {
         keys.push(...key);
+        if (Array.isArray(key)) {
+            keys.push(...key);
+        }
+        else if (typeof key === 'string') {
+            keys.push(key);
+        }
     }
     if (keys.length)
         await redis.del(keys);

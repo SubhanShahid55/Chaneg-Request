@@ -162,18 +162,20 @@ export async function removeAdminAvatar(id: string) {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const isPublicApproval = path.startsWith('/approval');
   const request = (token: string) => fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token && !isPublicApproval ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
     cache: 'no-store',
   });
   let token = accessToken();
   let response = await request(token);
-  if (response.status === 401 && refreshToken() && path !== '/auth/refresh') {
+  if (!isPublicApproval && response.status === 401 && refreshToken() && path !== '/auth/refresh') {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       token = refreshed;
@@ -234,6 +236,14 @@ function mapRequest(row: any): ChangeRequest {
       feedbackNotes: row.approval_response.decline_reason || undefined,
     } : undefined,
     notes: row.notes || [],
+    activityEvents: (row.activity_events || []).map((e: any) => ({
+      id: e.id,
+      request_id: e.request_id,
+      event_type: e.event_type,
+      event_data: e.event_data,
+      actor_name: e.actor_name,
+      created_at: e.created_at,
+    })),
   };
 }
 
@@ -280,12 +290,49 @@ export async function fetchRequest(id: string): Promise<ChangeRequest> {
 }
 
 export async function updateRequestStatus(id: string, status: RequestStatus) {
-  if (status === 'pending') return apiFetch(`/requests/${encodeURIComponent(id)}/send-for-approval`, { method: 'POST', body: '{}' });
+  if (status === 'reviewing') {
+    return apiFetch(`/requests/${encodeURIComponent(id)}/send-for-approval`, { method: 'POST', body: '{}' });
+  }
   return apiFetch(`/requests/${encodeURIComponent(id)}/advance`, { method: 'POST', body: '{}' });
+}
+
+export async function approveReview(id: string) {
+  return apiFetch(`/requests/${encodeURIComponent(id)}/approve-review`, { method: 'POST', body: '{}' });
+}
+
+export async function requestReviewChanges(id: string, reason: string) {
+  return apiFetch(`/requests/${encodeURIComponent(id)}/request-review-changes`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function updateEstimate(id: string, data: {
+  hourly_rate?: number;
+  hours?: number;
+  cost?: number;
+  target_delivery_date?: string;
+  timeline_days?: number;
+  deliverables?: Array<{ description: string; hours: number; category: string }>;
+  exclusions?: string[];
+}) {
+  return apiFetch<any>(`/requests/${encodeURIComponent(id)}/estimate`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchRequestActivity(id: string) {
+  const response = await apiFetch<{ events: any[] }>(`/requests/${encodeURIComponent(id)}/activity`);
+  return response.events || [];
 }
 
 export async function addRequestNote(id: string, content: string) {
   return apiFetch(`/requests/${encodeURIComponent(id)}/notes`, { method: 'POST', body: JSON.stringify({ content }) });
+}
+
+export async function fetchApproval(token: string) {
+  return apiFetch<any>(`/approval/${encodeURIComponent(token)}`);
 }
 
 export async function approveApproval(token: string) {

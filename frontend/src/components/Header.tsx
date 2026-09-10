@@ -35,26 +35,37 @@ export function Header() {
 
   return (
     <>
-      <aside className="changeflow-sidebar fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-[#d6e5de] bg-white px-4 py-5 shadow-[4px_0_20px_rgba(28,61,49,0.04)] md:flex">
+      <aside className="changeflow-sidebar fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-[#e2e8f0] bg-white px-4 py-5 shadow-[4px_0_20px_rgba(15,23,42,0.03)] md:flex">
         <Link href="/dashboard" className="flex items-center gap-2.5 px-2">
           <img alt="ChangeFlow logo" className="h-9 w-9 object-contain" src="/assets/logo.svg" />
           <span className="text-lg font-semibold tracking-tight text-[#0b1c30]">ChangeFlow</span>
         </Link>
-        <p className="mb-3 mt-10 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7a8d85]">Workspace</p>
+        <p className="mb-3 mt-10 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#777587]">Workspace</p>
         <nav className="flex flex-col gap-1 text-sm font-medium">
-          {navItems.map((item) => <NavLink key={item.href} item={item} pathname={pathname} />)}
+          {navItems.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} />
+          ))}
         </nav>
-        <div className="mt-auto border-t border-[#e4eee9] pt-4">
-          <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#9d2c27] transition hover:bg-[#fff2f0]">
-            <span className="material-symbols-outlined text-lg" aria-hidden="true">logout</span> Log out
+        <div className="mt-auto border-t border-[#e2e8f0] pt-4">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#ba1a1a] transition hover:bg-[#fff2f0]"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">
+              logout
+            </span>{' '}
+            Log out
           </button>
         </div>
       </aside>
 
-      <header className="fixed left-0 right-0 top-0 z-30 border-b border-[#d6e5de] bg-[#f6f8f7]/95 shadow-[0_1px_8px_rgba(28,61,49,0.04)] backdrop-blur-xl md:left-60">
+      <header className="fixed left-0 right-0 top-0 z-30 border-b border-[#e2e8f0] bg-[#f8f9ff]/95 shadow-[0_1px_8px_rgba(15,23,42,0.03)] backdrop-blur-xl md:left-60">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
           {/* Brand Logo & Name */}
-          <Link href="/dashboard" className="text-sm font-semibold text-[#4f46e5] md:hidden">ChangeFlow</Link>
+          <Link href="/dashboard" className="text-sm font-semibold text-[#4f46e5] md:hidden">
+            ChangeFlow
+          </Link>
 
           {/* Right Tools & Profile */}
           <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
@@ -69,8 +80,8 @@ export function Header() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setGlobalSearchQuery(val);
-                  if (pathname !== '/') {
-                    window.location.href = '/';
+                  if (pathname !== '/dashboard' && pathname !== '/') {
+                    router.push('/dashboard');
                   }
                 }}
                 placeholder="Search requests by ID, client, or keyword..."
@@ -79,6 +90,7 @@ export function Header() {
               {globalSearchQuery && (
                 <button
                   onClick={() => setGlobalSearchQuery('')}
+                  aria-label="Clear search"
                   className="absolute right-3 text-[#777587] hover:text-[#0b1c30] flex items-center"
                 >
                   <span className="material-symbols-outlined text-[18px]">close</span>
@@ -114,8 +126,12 @@ export function Header() {
                     {notifications.length === 0 && <p className="p-2 text-[#777587]">No recent activity.</p>}
                     {notifications.map((notification) => (
                       <div key={notification.id} className="p-2 rounded-lg bg-[#f8f9ff] border border-[#e2e8f0]/60">
-                        <span className="font-medium text-[#0b1c30]">{notification.event_type.replaceAll('_', ' ')}</span>
-                        <p className="text-[#464555] text-[11px] mt-0.5">{notification.actor_name || 'System'} · {new Date(notification.created_at).toLocaleString()}</p>
+                        <span className="font-medium text-[#0b1c30]">
+                          {notification.event_type.replaceAll('_', ' ')}
+                        </span>
+                        <p className="text-[#464555] text-[11px] mt-0.5">
+                          {notification.actor_name || 'System'} · {new Date(notification.created_at).toLocaleString()}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -124,12 +140,22 @@ export function Header() {
             </div>
 
             {/* Profile Badge */}
-            <button 
+            <button
               onClick={() => setIsProfileModalOpen(true)}
               className="flex items-center gap-2 pl-2 border-l border-[#d3e4fe]/80 text-left hover:opacity-80 transition-opacity"
               title="Edit Profile"
             >
-              {currentUser?.avatarUrl ? <img alt={`${currentUser.name} profile`} className="w-8 h-8 rounded-full object-cover ring-1 ring-[#4f46e5]/30" src={currentUser.avatarUrl} /> : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e5eeff] text-xs font-bold text-[#3525cd]">{(currentUser?.name || 'U').slice(0, 1).toUpperCase()}</span>}
+              {currentUser?.avatarUrl ? (
+                <img
+                  alt={`${currentUser.name} profile`}
+                  className="w-8 h-8 rounded-full object-cover ring-1 ring-[#4f46e5]/30"
+                  src={currentUser.avatarUrl}
+                />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e5eeff] text-xs font-bold text-[#3525cd]">
+                  {(currentUser?.name || 'U').slice(0, 1).toUpperCase()}
+                </span>
+              )}
               <div className="hidden lg:flex flex-col">
                 <span className="text-xs font-semibold text-[#0b1c30] leading-none">
                   {currentUser?.name || 'Your profile'}
@@ -140,8 +166,15 @@ export function Header() {
               </div>
             </button>
 
-            <button type="button" onClick={handleLogout} className="hidden rounded-lg border border-[#e2b9b5] px-3 py-2 text-xs font-semibold text-[#9d2c27] transition hover:bg-[#fff2f0] lg:inline-flex lg:items-center lg:gap-1.5">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">logout</span> Log out
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="hidden rounded-lg border border-[#e2b9b5] px-3 py-2 text-xs font-semibold text-[#ba1a1a] transition hover:bg-[#fff2f0] lg:inline-flex lg:items-center lg:gap-1.5"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">
+                logout
+              </span>{' '}
+              Log out
             </button>
 
             {/* Mobile Hamburger Toggle Button */}
@@ -150,9 +183,7 @@ export function Header() {
               className="md:hidden p-2 rounded-lg text-[#464555] hover:bg-[#e5eeff] hover:text-[#0b1c30] transition-colors"
               aria-label="Toggle navigation menu"
             >
-              <span className="material-symbols-outlined text-2xl">
-                {mobileMenuOpen ? 'close' : 'menu'}
-              </span>
+              <span className="material-symbols-outlined text-2xl">{mobileMenuOpen ? 'close' : 'menu'}</span>
             </button>
           </div>
         </div>
@@ -168,8 +199,20 @@ export function Header() {
               </span>
             </div>
 
-            {navItems.map((item) => <NavLink key={item.href} item={item} pathname={pathname} onClick={() => setMobileMenuOpen(false)} />)}
-            <button type="button" onClick={handleLogout} className="mt-2 flex items-center gap-3 rounded-xl border-t border-[#e4eee9] p-3 pt-4 text-sm font-semibold text-[#9d2c27]"> <span className="material-symbols-outlined text-lg" aria-hidden="true">logout</span> Log out</button>
+            {navItems.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} onClick={() => setMobileMenuOpen(false)} />
+            ))}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-2 flex items-center gap-3 rounded-xl border-t border-[#e2e8f0] p-3 pt-4 text-sm font-semibold text-[#ba1a1a]"
+            >
+              {' '}
+              <span className="material-symbols-outlined text-lg" aria-hidden="true">
+                logout
+              </span>{' '}
+              Log out
+            </button>
           </div>
         </div>
       )}
@@ -177,7 +220,28 @@ export function Header() {
   );
 }
 
-function NavLink({ item, pathname, onClick }: { item: { label: string; href: string; icon: string }; pathname: string; onClick?: () => void }) {
+function NavLink({
+  item,
+  pathname,
+  onClick,
+}: {
+  item: { label: string; href: string; icon: string };
+  pathname: string;
+  onClick?: () => void;
+}) {
   const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
-  return <Link href={item.href} onClick={onClick} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${isActive ? 'bg-[#4f46e5] text-white shadow-sm' : 'text-[#464555] hover:bg-[#eff4ff] hover:text-[#0b1c30]'}`}><span className="material-symbols-outlined text-lg" aria-hidden="true">{item.icon}</span><span>{item.label}</span></Link>;
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
+        isActive ? 'bg-[#4f46e5] text-white shadow-sm' : 'text-[#464555] hover:bg-[#eff4ff] hover:text-[#0b1c30]'
+      }`}
+    >
+      <span className="material-symbols-outlined text-lg" aria-hidden="true">
+        {item.icon}
+      </span>
+      <span>{item.label}</span>
+    </Link>
+  );
 }

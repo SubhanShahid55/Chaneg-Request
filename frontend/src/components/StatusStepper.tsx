@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
-import React from 'react'
+import React from 'react';
 
 export interface StatusStepperProps {
-  currentStatus: string
+  currentStatus: string;
 }
 
 export function StatusStepper({ currentStatus }: StatusStepperProps) {
@@ -13,7 +13,7 @@ export function StatusStepper({ currentStatus }: StatusStepperProps) {
     { label: 'Awaiting approval', mobileLabel: 'Awaiting' },
     { label: 'Approved', mobileLabel: 'Approved' },
     { label: 'In progress', mobileLabel: 'In prog.' },
-    { label: 'Completed', mobileLabel: 'Done' }
+    { label: 'Completed', mobileLabel: 'Done' },
   ];
 
   let currentStepIndex = 0;
@@ -45,7 +45,6 @@ export function StatusStepper({ currentStatus }: StatusStepperProps) {
         const isCompleted = index < currentStepIndex && !isDeclined;
         const isCurrent = index === currentStepIndex && !isDeclined;
         const isDeclinedStep = index === 2 && isDeclined;
-        const isFuture = index > currentStepIndex || (isDeclined && index > 2);
 
         return (
           <div key={index} className="flex flex-col items-center flex-1 relative group z-10">
@@ -88,16 +87,20 @@ export function StatusStepper({ currentStatus }: StatusStepperProps) {
             <div className="mt-2 text-center">
               <span
                 className={`text-xs sm:text-sm font-medium ${
-                  isCurrent || isCompleted || isDeclinedStep ? 'text-[#0b1c30]' : 'text-[#777587]'
+                  isDeclinedStep
+                    ? 'text-rose-600 font-semibold'
+                    : isCurrent || isCompleted
+                    ? 'text-[#0b1c30]'
+                    : 'text-[#777587]'
                 }`}
               >
-                <span className="hidden sm:inline">{step.label}</span>
-                <span className="inline sm:hidden">{step.mobileLabel}</span>
+                <span className="hidden sm:inline">{isDeclinedStep ? 'Declined' : step.label}</span>
+                <span className="inline sm:hidden">{isDeclinedStep ? 'Declined' : step.mobileLabel}</span>
               </span>
             </div>
           </div>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

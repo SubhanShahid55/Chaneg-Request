@@ -3,14 +3,20 @@
 .field {
   width: 100%;
   border: 1px solid #b9cbc3;
+  border: 1px solid #cbd5e1;
   border-radius: 0.5rem;
   padding: 0.7rem 0.85rem;
   outline: none;
+  background-color: #ffffff;
+  color: #0b1c30;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .field:focus {
   border-color: #176b57;
   box-shadow: 0 0 0 2px rgb(23 107 87 / 0.18);
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgb(79 70 229 / 0.18);
 }
 
 @theme {
@@ -181,17 +187,20 @@
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
   animation: draw-velocity-line 1.4s ease-out forwards;
+  animation: draw-velocity-line 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .velocity-area {
   opacity: 0;
   animation: reveal-velocity-area 700ms ease-out 700ms forwards;
+  animation: reveal-velocity-area 300ms ease-out 120ms forwards;
 }
 
 .velocity-point {
   transform-box: fill-box;
   transform-origin: center;
   animation: pop-velocity-point 450ms ease-out both;
+  animation: pop-velocity-point 250ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .velocity-point:nth-of-type(2) { animation-delay: 150ms; }
@@ -201,6 +210,13 @@
 .velocity-point:nth-of-type(6) { animation-delay: 430ms; }
 .velocity-point:nth-of-type(7) { animation-delay: 500ms; }
 .velocity-point:nth-of-type(8) { animation-delay: 570ms; }
+.velocity-point:nth-of-type(2) { animation-delay: 40ms; }
+.velocity-point:nth-of-type(3) { animation-delay: 80ms; }
+.velocity-point:nth-of-type(4) { animation-delay: 120ms; }
+.velocity-point:nth-of-type(5) { animation-delay: 160ms; }
+.velocity-point:nth-of-type(6) { animation-delay: 200ms; }
+.velocity-point:nth-of-type(7) { animation-delay: 240ms; }
+.velocity-point:nth-of-type(8) { animation-delay: 280ms; }
 
 @keyframes draw-velocity-line {
   to { stroke-dashoffset: 0; }
@@ -213,6 +229,30 @@
 @keyframes pop-velocity-point {
   from { opacity: 0; transform: scale(0.3); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .velocity-line {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .velocity-area {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  .velocity-point {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* Custom scrollbars */

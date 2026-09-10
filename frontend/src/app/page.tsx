@@ -21,7 +21,7 @@ function timeAgo(dateString?: string) {
 }
 
 export function DashboardContent() {
-  const { requests, setIsSlideoverOpen, showToast, globalSearchQuery, isLoading, error } = useApp();
+  const { requests, setIsSlideoverOpen, showToast, globalSearchQuery, isLoading, error, reloadRequests } = useApp();
   const [statusFilter, setStatusFilter] = useState('all');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [velocityData, setVelocityData] = useState<Array<{ week: string; total: number; approved: number; pending: number }>>([]);
@@ -52,6 +52,9 @@ export function DashboardContent() {
   });
 
   const counts = {
+    draft: requests.filter((request) => request.status === 'draft').length,
+    pending: requests.filter((request) => request.status === 'pending').length,
+    reviewing: requests.filter((request) => request.status === 'reviewing').length,
     needsReview: requests.filter((request) => ['pending', 'reviewing', 'draft'].includes(request.status)).length,
     awaitingApproval: requests.filter((request) => request.status === 'awaiting_approval').length,
     inProgress: requests.filter((request) => request.status === 'in_progress').length,
@@ -74,7 +77,7 @@ export function DashboardContent() {
     link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
     link.download = 'change-requests-export.csv';
     link.click();
-    showToast('CSV Generation Complete', 'change-requests-export.csv downloaded successfully.');
+    showToast('CSV Generation Complete', 'change-requests-export.csv downloaded successfully.', 'success');
   };
 
   const cards = [
@@ -127,6 +130,13 @@ export function DashboardContent() {
                 <span className={`material-symbols-outlined ${card.iconClass}`}>{card.icon}</span>
               </div>
               <span className="mt-4 block text-3xl font-bold">{card.value}</span>
+              {card.filter === 'needs_review' && (
+                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#777587]">
+                  <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-slate-400" />New {counts.draft}</span>
+                  <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-500" />Pending {counts.pending}</span>
+                  <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-500" />Reviewing {counts.reviewing}</span>
+                </div>
+              )}
             </button>
           ))}
         </div>
@@ -139,7 +149,7 @@ export function DashboardContent() {
             </div>
             <Link href="/reports" className="text-sm font-medium text-[#4f46e5] hover:underline">View reports</Link>
           </div>
-          {isLoading && <p className="py-12 text-center text-sm text-[#777587]">Loading live requests...</p>}
+          {isLoading && requests.length === 0 && <p className="py-12 text-center text-sm text-[#777587]">Loading live requests...</p>}
           {error && <p className="py-12 text-center text-sm text-[#ba1a1a]">{error}</p>}
           {!isLoading && !error && velocityData.length === 0 && <p className="py-12 text-center text-sm text-[#777587]">No velocity data in the database yet.</p>}
           {velocityData.length > 0 && <div className="flex gap-3">
@@ -154,7 +164,7 @@ export function DashboardContent() {
                 <defs>
                   <linearGradient id="velocityFill" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+                    <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.22" />
                   </linearGradient>
                 </defs>
                 <polygon className="velocity-area" points={`${chartPoints} 800,100 0,100`} fill="url(#velocityFill)" />
@@ -191,24 +201,71 @@ export function DashboardContent() {
             </div>
             <Link href="/requests" className="text-sm font-medium text-[#4f46e5] hover:underline">View all requests</Link>
           </div>
+          {error && (
+            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-between text-rose-800 text-xs sm:text-sm">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-rose-600">error</span>
+                <span>{error}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => void reloadRequests()}
+                className="px-3 py-1 rounded bg-white border border-rose-300 text-rose-700 font-semibold hover:bg-rose-100 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full min-w-[52rem] text-left text-sm">
               <thead className="border-b border-[#e2e8f0] bg-[#fafbff] text-xs uppercase text-[#777587]"><tr>
                 <th className="px-4 py-3">Request</th><th className="px-4 py-3">Client</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Priority</th><th className="px-4 py-3">Estimate</th><th className="px-4 py-3">Updated</th><th className="px-4 py-3 text-right">Action</th>
               </tr></thead>
               <tbody className="divide-y divide-[#e2e8f0]">
-                {filteredRequests.slice(0, 8).map((request) => (
-                  <tr key={request.id} className="hover:bg-[#fafbff]">
-                    <td className="max-w-[18rem] px-4 py-3"><Link href={`/requests/${request.id}`} className="block font-medium text-[#0b1c30] hover:text-[#4f46e5] hover:underline">{request.title}</Link><div className="mt-0.5 font-mono text-xs text-[#4f46e5]">{request.id}</div></td>
-                    <td className="px-4 py-3"><div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e5eeff] text-[10px] font-bold text-[#3525cd]">{request.client.slice(0, 2).toUpperCase()}</span><span className="max-w-[9rem] truncate font-medium" title={request.client}>{request.client}</span></div></td>
-                    <td className="px-4 py-3"><span className="inline-flex rounded-md bg-[#eff4ff] px-2 py-1 text-xs font-medium text-[#3525cd]">{getStatusLabel(request.status)}</span></td>
-                    <td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 text-xs font-medium ${request.urgency === 'Critical' ? 'text-[#ba1a1a]' : request.urgency === 'High' ? 'text-amber-700' : 'text-[#777587]'}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{request.urgency}</span></td>
-                    <td className="whitespace-nowrap px-4 py-3"><span className="font-mono font-semibold">${request.estimatedCost.toLocaleString()}</span><span className="mx-1 text-[#cbd5e1]">·</span><span className="text-[#464555]">{request.estimatedHours}h</span></td>
-                    <td className="px-4 py-3 text-[#777587]">{timeAgo(request.updatedAt || request.createdAt)}</td>
-                    <td className="px-4 py-3 text-right"><Link href={`/requests/${request.id}`} className="font-semibold text-[#4f46e5] hover:underline">View</Link></td>
+                {isLoading && requests.length === 0 ? (
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse">
+                      <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-36 mb-1" /><div className="h-3 bg-slate-100 rounded w-16" /></td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="h-7 w-7 rounded-full bg-slate-200" /><div className="h-4 bg-slate-200 rounded w-24" /></div></td>
+                      <td className="px-4 py-3"><div className="h-5 bg-slate-200 rounded w-20" /></td>
+                      <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-14" /></td>
+                      <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-16" /></td>
+                      <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-12" /></td>
+                      <td className="px-4 py-3 text-right"><div className="h-4 bg-slate-100 rounded w-8 ml-auto" /></td>
+                    </tr>
+                  ))
+                ) : (
+                  filteredRequests.slice(0, 8).map((request) => (
+                    <tr key={request.id} className="hover:bg-[#fafbff]">
+                      <td className="max-w-[18rem] px-4 py-3"><Link href={`/requests/${request.id}`} className="block font-medium text-[#0b1c30] hover:text-[#4f46e5] hover:underline">{request.title}</Link><div className="mt-0.5 font-mono text-xs text-[#4f46e5]">{request.id}</div></td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e5eeff] text-[10px] font-bold text-[#3525cd]">{request.client.slice(0, 2).toUpperCase()}</span><span className="max-w-[9rem] truncate font-medium" title={request.client}>{request.client}</span></div></td>
+                      <td className="px-4 py-3"><span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${request.status === 'reviewing' ? 'bg-violet-50 text-violet-700' : request.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-[#eff4ff] text-[#3525cd]'}`}>{getStatusLabel(request.status)}</span></td>
+                      <td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 text-xs font-medium ${request.urgency === 'Critical' ? 'text-[#ba1a1a]' : request.urgency === 'High' ? 'text-amber-700' : 'text-[#777587]'}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{request.urgency}</span></td>
+                      <td className="whitespace-nowrap px-4 py-3"><span className="font-mono font-semibold">${request.estimatedCost.toLocaleString()}</span><span className="mx-1 text-[#cbd5e1]">·</span><span className="text-[#464555]">{request.estimatedHours}h</span></td>
+                      <td className="px-4 py-3 text-[#777587]">{timeAgo(request.updatedAt || request.createdAt)}</td>
+                      <td className="px-4 py-3 text-right"><Link href={`/requests/${request.id}`} className="font-semibold text-[#4f46e5] hover:underline">View</Link></td>
+                    </tr>
+                  ))
+                )}
+                {!isLoading && filteredRequests.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center text-[#777587]">
+                      <span className="material-symbols-outlined text-3xl mb-1 text-slate-300">search_off</span>
+                      <p className="font-medium text-sm text-[#0b1c30]">No requests match these filters</p>
+                      <p className="text-xs text-[#777587] mt-0.5">Try resetting the filter tabs or clear your search query.</p>
+                      {statusFilter !== 'all' && (
+                        <button
+                          type="button"
+                          onClick={() => setStatusFilter('all')}
+                          className="mt-2 px-3 py-1 rounded-md bg-[#eff4ff] text-[#4f46e5] text-xs font-semibold hover:bg-[#dce9ff]"
+                        >
+                          View All
+                        </button>
+                      )}
+                    </td>
                   </tr>
-                ))}
-                {filteredRequests.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-[#777587]">No requests match these filters.</td></tr>}
+                )}
               </tbody>
             </table>
           </div>
