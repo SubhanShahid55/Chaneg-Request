@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { supabaseAdmin, supabasePublic, createUserClient, presentProfile } from '../supabase.js';
+import { supabaseAdmin, supabasePublic, presentProfile } from '../supabase.js';
 import { removeAvatar, uploadAvatar } from '../services/avatar.js';
 import { config } from '../config.js';
 const router = Router();
@@ -29,6 +29,8 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/password', async (req, res) => {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 120) : '';
+    const jobTitle = typeof req.body?.job_title === 'string' ? req.body.job_title.trim().slice(0, 100) : '';
     if (!token) {
         res.status(401).json({ error: 'Your invitation session is missing or expired.' });
         return;
@@ -37,10 +39,27 @@ router.post('/password', async (req, res) => {
         res.status(400).json({ error: 'Your password must be at least 8 characters.' });
         return;
     }
-    const { data, error } = await createUserClient(token).auth.updateUser({ password });
-    if (error || !data.user) {
-        res.status(400).json({ error: 'We could not set your password. Please request a new invitation.' });
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData.user) {
+        res.status(401).json({ error: 'Your invitation session has expired. Ask an administrator to resend the invitation.' });
         return;
+    }
+    const metadata = { ...authData.user.user_metadata, ...(name ? { name } : {}), ...(jobTitle ? { job_title: jobTitle } : {}) };
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(authData.user.id, { password, user_metadata: metadata });
+    if (error || !data.user) {
+        console.error('Invitation password update failed:', error?.message || 'No user returned');
+        res.status(400).json({ error: error?.message || 'We could not set your password. Please request a new invitation.' });
+        return;
+    }
+    const profileUpdates = {};
+    if (name)
+        profileUpdates.name = name;
+    if (jobTitle)
+        profileUpdates.job_title = jobTitle;
+    if (Object.keys(profileUpdates).length > 0) {
+        const { error: profileError } = await supabaseAdmin.from('profiles').update(profileUpdates).eq('id', authData.user.id);
+        if (profileError && !profileError.message.toLowerCase().includes('job_title'))
+            console.error('Invitation profile update failed:', profileError.message);
     }
     res.json({ success: true });
 });
@@ -55,7 +74,12 @@ router.post('/update-password', async (req, res) => {
         res.status(400).json({ error: 'Your password must be at least 8 characters.' });
         return;
     }
-    const { data, error } = await createUserClient(token).auth.updateUser({ password });
+    const { data: sessionUser, error: sessionError } = await supabaseAdmin.auth.getUser(token);
+    if (sessionError || !sessionUser.user) {
+        res.status(401).json({ error: 'Your password reset session is missing or expired.' });
+        return;
+    }
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(sessionUser.user.id, { password });
     if (error || !data.user) {
         res.status(400).json({ error: 'We could not update your password. Please request a new reset link.' });
         return;
