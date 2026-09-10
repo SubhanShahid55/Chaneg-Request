@@ -40,34 +40,98 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  const origin = req.headers.origin || (typeof req.headers.referer === 'string' ? new URL(req.headers.referer).origin : null);
+  const appBaseUrl = origin && (config.corsOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1'))
+    ? origin
+    : config.appUrl;
+
   const invitationData = { name, role, job_title: jobTitle };
   const useBrandedEmail = Boolean(config.resendApiKey && config.resendApiKey !== 're_your_placeholder_key');
   let invitation;
+  let emailSent = false;
+  let rateLimited = false;
+
   try {
-    invitation = useBrandedEmail
-      ? await supabaseAdmin.auth.admin.generateLink({ type: 'invite', email, options: { data: invitationData, redirectTo: `${config.appUrl}/accept-invite` } })
-      : await supabaseAdmin.auth.admin.inviteUserByEmail(email, { data: invitationData, redirectTo: `${config.appUrl}/accept-invite` });
+    if (useBrandedEmail) {
+      invitation = await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { data: invitationData, redirectTo: `${appBaseUrl}/accept-invite` },
+      });
+    } else {
+      invitation = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: invitationData,
+        redirectTo: `${appBaseUrl}/accept-invite`,
+      });
+      // Detect built-in Supabase SMTP rate limit
+      const inviteErr = invitation.error;
+      if (
+        inviteErr &&
+        (inviteErr.message.toLowerCase().includes('rate limit') ||
+         inviteErr.status === 429 ||
+         (inviteErr as { code?: string }).code === 'over_email_send_rate_limit')
+      ) {
+        console.warn('Supabase email rate limit encountered; falling back to generateLink without SMTP.');
+        rateLimited = true;
+        invitation = await supabaseAdmin.auth.admin.generateLink({
+          type: 'invite',
+          email,
+          options: { data: invitationData, redirectTo: `${appBaseUrl}/accept-invite` },
+        });
+      }
+    }
   } catch (cause) {
     console.error('Admin invitation provider error:', cause);
     res.status(502).json({ error: 'The invitation service is unavailable. Check the Supabase Auth email configuration.' });
     return;
   }
-  const created = invitation.data;
+
+  let created = invitation.data;
   const createError = invitation.error;
-  if (createError || !created.user) {
+  if (createError || !created?.user) {
     const providerMessage = createError?.message || 'Unknown invitation error';
     const normalizedMessage = providerMessage.toLowerCase();
     console.error('Admin invitation rejected:', providerMessage);
-    if (normalizedMessage.includes('already') || normalizedMessage.includes('registered')) {
+    if (
+      normalizedMessage.includes('already') ||
+      normalizedMessage.includes('registered') ||
+      (createError as { code?: string })?.code === 'email_exists'
+    ) {
       res.status(409).json({ error: 'A user with this email already exists. Use a different email address.' });
       return;
     }
     if (normalizedMessage.includes('redirect') || normalizedMessage.includes('url')) {
-      res.status(400).json({ error: `Supabase rejected the invitation redirect URL (${config.appUrl}/accept-invite). Add this URL to Supabase Auth redirect URLs.` });
+      res.status(400).json({ error: `Supabase rejected the invitation redirect URL (${appBaseUrl}/accept-invite). Add this URL to Supabase Auth redirect URLs.` });
       return;
     }
-    res.status(400).json({ error: `Unable to send the invitation: ${providerMessage}` });
-    return;
+    // Fallback if rate limit caught here
+    if (
+      normalizedMessage.includes('rate limit') ||
+      normalizedMessage.includes('over_email_send_rate_limit') ||
+      createError?.status === 429
+    ) {
+      try {
+        const fallback = await supabaseAdmin.auth.admin.generateLink({
+          type: 'invite',
+          email,
+          options: { data: invitationData, redirectTo: `${appBaseUrl}/accept-invite` },
+        });
+        if (fallback.data?.user) {
+          invitation = fallback;
+          created = fallback.data;
+          rateLimited = true;
+        } else {
+          res.status(429).json({ error: 'Email rate limit exceeded. Please try again later or configure a custom SMTP provider.' });
+          return;
+        }
+      } catch {
+        res.status(429).json({ error: 'Email rate limit exceeded. Please try again later or configure a custom SMTP provider.' });
+        return;
+      }
+    } else {
+      res.status(400).json({ error: `Unable to send the invitation: ${providerMessage}` });
+      return;
+    }
   }
 
   const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').upsert({
@@ -84,21 +148,26 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: 'User registration could not be completed.' });
     return;
   }
-  const invitationLink = useBrandedEmail
-    ? (created as { properties?: { action_link?: string } }).properties?.action_link
-    : undefined;
-  if (invitationLink) {
+
+  const invitationLink = (created as { properties?: { action_link?: string } })?.properties?.action_link;
+  if (useBrandedEmail && invitationLink) {
     try {
       await sendInvitationEmail(email, name, jobTitle, invitationLink);
+      emailSent = true;
     } catch (emailError) {
-      await supabaseAdmin.from('profiles').delete().eq('id', created.user.id);
-      await supabaseAdmin.auth.admin.deleteUser(created.user.id);
-      console.error('Invitation email failed:', emailError);
-      res.status(502).json({ error: 'The invitation was not sent. Check the email service configuration and try again.' });
-      return;
+      console.error('Invitation email delivery failed:', emailError);
+      emailSent = false;
     }
+  } else if (!rateLimited && !useBrandedEmail) {
+    emailSent = true;
   }
-  res.status(201).json({ user: await presentProfile(profile) });
+
+  res.status(201).json({
+    user: await presentProfile(profile),
+    invitation_link: invitationLink,
+    email_sent: emailSent,
+    rate_limited: rateLimited,
+  });
 });
 
 router.post('/users/:id/resend-invite', async (req: Request, res: Response): Promise<void> => {
@@ -106,21 +175,42 @@ router.post('/users/:id/resend-invite', async (req: Request, res: Response): Pro
   const { data: authUser, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
   if (userError || !authUser.user?.email) { res.status(404).json({ error: 'User not found.' }); return; }
   if (authUser.user.email_confirmed_at) { res.status(400).json({ error: 'This user has already accepted their invitation.' }); return; }
-  if (!config.resendApiKey || config.resendApiKey === 're_your_placeholder_key') {
-    res.status(503).json({ error: 'Configure RESEND_API_KEY to resend an invitation to an existing user.' });
-    return;
-  }
+
+  const origin = req.headers.origin || (typeof req.headers.referer === 'string' ? new URL(req.headers.referer).origin : null);
+  const appBaseUrl = origin && (config.corsOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1'))
+    ? origin
+    : config.appUrl;
+
   const profile = await supabaseAdmin.from('profiles').select('name, job_title').eq('id', userId).single();
-  const invitation = await supabaseAdmin.auth.admin.generateLink({ type: 'invite', email: authUser.user.email, options: { data: authUser.user.user_metadata, redirectTo: `${config.appUrl}/accept-invite` } });
+  const invitation = await supabaseAdmin.auth.admin.generateLink({
+    type: 'invite',
+    email: authUser.user.email,
+    options: { data: authUser.user.user_metadata, redirectTo: `${appBaseUrl}/accept-invite` },
+  });
   const link = (invitation.data as { properties?: { action_link?: string } } | null)?.properties?.action_link;
-  if (invitation.error || !link) { res.status(502).json({ error: 'The invitation could not be regenerated.' }); return; }
-  try {
-    await sendInvitationEmail(authUser.user.email, profile.data?.name || authUser.user.email, profile.data?.job_title || null, link);
-  } catch {
-    res.status(502).json({ error: 'The invitation email could not be sent.' });
+  if (invitation.error || !link) {
+    res.status(502).json({ error: 'The invitation could not be regenerated.' });
     return;
   }
-  res.json({ success: true });
+
+  let emailSent = false;
+  if (config.resendApiKey && config.resendApiKey !== 're_your_placeholder_key') {
+    try {
+      await sendInvitationEmail(authUser.user.email, profile.data?.name || authUser.user.email, profile.data?.job_title || null, link);
+      emailSent = true;
+    } catch (cause) {
+      console.error('Resend email delivery failed:', cause);
+    }
+  }
+
+  res.json({
+    success: true,
+    email_sent: emailSent,
+    invitation_link: link,
+    message: emailSent
+      ? `Invitation resent to ${authUser.user.email}.`
+      : `Invitation link generated for ${authUser.user.email}.`,
+  });
 });
 
 router.patch('/users/:id', async (req: Request, res: Response): Promise<void> => {

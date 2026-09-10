@@ -142,7 +142,7 @@ export async function fetchAdminUsers() {
 }
 
 export async function inviteAdminUser(data: { name: string; email: string; role: 'admin' | 'standard'; job_title?: string }) {
-  return apiFetch<{ user: AdminUser }>('/admin/users', { method: 'POST', body: JSON.stringify(data) });
+  return apiFetch<{ user: AdminUser; invitation_link?: string; email_sent?: boolean; rate_limited?: boolean }>('/admin/users', { method: 'POST', body: JSON.stringify(data) });
 }
 
 export async function updateAdminUser(id: string, updates: Partial<Pick<AdminUser, 'name' | 'role' | 'is_active'>>) {
@@ -150,7 +150,7 @@ export async function updateAdminUser(id: string, updates: Partial<Pick<AdminUse
 }
 
 export async function resendAdminInvite(id: string) {
-  return apiFetch<{ success: true }>(`/admin/users/${encodeURIComponent(id)}/resend-invite`, { method: 'POST', body: '{}' });
+  return apiFetch<{ success: true; invitation_link?: string; email_sent?: boolean; message?: string }>(`/admin/users/${encodeURIComponent(id)}/resend-invite`, { method: 'POST', body: '{}' });
 }
 
 export async function uploadAdminAvatar(id: string, dataUrl: string) {

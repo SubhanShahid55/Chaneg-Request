@@ -25,6 +25,7 @@ function AdminContent() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [inviteLinkInfo, setInviteLinkInfo] = useState<{ email: string; link: string; rateLimited?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [clientSubmitting, setClientSubmitting] = useState(false);
@@ -65,11 +66,27 @@ function AdminContent() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setInviteLinkInfo(null);
     setSubmitting(true);
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      await inviteAdminUser({ name: name.trim(), email: normalizedEmail, role, job_title: jobTitle.trim() });
-      setMessage(`Invitation sent to ${normalizedEmail}.`);
+      const response = await inviteAdminUser({ name: name.trim(), email: normalizedEmail, role, job_title: jobTitle.trim() });
+      if (response.invitation_link) {
+        setInviteLinkInfo({
+          email: normalizedEmail,
+          link: response.invitation_link,
+          rateLimited: response.rate_limited,
+        });
+        if (response.rate_limited) {
+          setMessage(`User created. Email rate limit was reached on the mail server, so please share the direct invitation link below with ${normalizedEmail}.`);
+        } else if (response.email_sent) {
+          setMessage(`Invitation sent to ${normalizedEmail}.`);
+        } else {
+          setMessage(`User created. Share the invitation link below.`);
+        }
+      } else {
+        setMessage(`Invitation sent to ${normalizedEmail}.`);
+      }
       setName('');
       setEmail('');
       setRole('standard');
@@ -113,7 +130,24 @@ function AdminContent() {
   }
 
   async function resendInvite(user: AdminUser) {
-    try { await resendAdminInvite(user.id); setMessage(`Invitation resent to ${user.email}.`); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to resend this invitation.'); }
+    setError('');
+    setMessage('');
+    try {
+      const res = await resendAdminInvite(user.id);
+      if (res.invitation_link) {
+        setInviteLinkInfo({ email: user.email, link: res.invitation_link });
+        try {
+          await navigator.clipboard.writeText(res.invitation_link);
+          setMessage(`Invitation link generated and copied to clipboard for ${user.email}.`);
+        } catch {
+          setMessage(`Invitation link generated for ${user.email}. Share the link below.`);
+        }
+      } else {
+        setMessage(`Invitation resent to ${user.email}.`);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to resend this invitation.');
+    }
   }
 
   const active = users.filter((user) => user.is_active).length;
@@ -138,6 +172,40 @@ function AdminContent() {
         </header>
         {error && <Alert tone="error">{error}</Alert>}
         {message && <Alert tone="success">{message}</Alert>}
+        {inviteLinkInfo && (
+          <div className="mt-6 rounded-2xl border border-[#c7d2fe] bg-[#eef2ff] p-5 text-[#1e1b4b] shadow-sm animate-in fade-in duration-200">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#4f46e5] text-xs font-bold text-white">✓</span>
+                <p className="text-sm font-semibold">
+                  Invitation Link for <span className="underline">{inviteLinkInfo.email}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(inviteLinkInfo.link);
+                    setMessage('Invitation link copied to clipboard!');
+                  } catch {
+                    // clipboard fallback
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-lg bg-[#4f46e5] px-3.5 py-1.5 text-xs font-semibold text-white shadow hover:bg-[#3525cd] active:scale-95 transition"
+              >
+                Copy invitation link
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-[#4338ca]">
+              {inviteLinkInfo.rateLimited
+                ? 'Notice: The email service rate limit was exceeded on the server, so the email could not be sent automatically. You can share this direct link with the user to activate their account:'
+                : 'Direct invitation link (can be shared with the user):'}
+            </p>
+            <div className="mt-2 flex items-center rounded-lg border border-[#c7d2fe] bg-white p-2.5 font-mono text-xs text-[#0b1c30] break-all select-all">
+              {inviteLinkInfo.link}
+            </div>
+          </div>
+        )}
         <section className="mt-8 rounded-2xl border border-[#d3e4fe] bg-white p-6 shadow-[0_8px_24px_rgba(30,58,95,0.05)] md:p-7">
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><h2 className="text-lg font-semibold">Register a new user</h2><p className="mt-1 text-sm leading-6 text-[#464555]">They will receive an invitation to set their own password. Passwords are never shown to administrators.</p></div><span className="rounded-full bg-[#eff4ff] px-3 py-1 text-xs font-semibold text-[#3525cd]">Invitation only</span></div>
           <form onSubmit={handleSubmit} className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_190px_auto] lg:items-end"><Field label="Full name"><input required value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Jordan Lee" className="field" /></Field><Field label="Email address"><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="field" /></Field><Field label="Role / title"><input value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} placeholder="e.g. Project manager" className="field" /></Field><Field label="Access level"><select value={role} onChange={(event) => setRole(event.target.value as 'admin' | 'standard')} className="field"><option value="standard">Standard user</option><option value="admin">Administrator</option></select></Field><button type="submit" disabled={submitting} className="rounded-lg bg-[#4f46e5] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#3525cd] disabled:cursor-not-allowed disabled:opacity-60">{submitting ? 'Sending invitation...' : 'Send invitation'}</button></form>
@@ -180,7 +248,7 @@ function UserRow({ user, isCurrentUser, onToggle, onResend }: { user: AdminUser;
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${user.invite_status === 'inactive' ? 'bg-[#fff2f0] text-[#9d2c27]' : user.invite_status === 'invited' ? 'bg-[#fff8e8] text-[#9a6500]' : 'bg-[#eff4ff] text-[#3525cd]'}`}>
           {user.invite_status === 'invited' ? 'Invitation pending' : user.invite_status === 'inactive' ? 'Inactive' : 'Active'}
         </span>
-        {user.invite_status === 'invited' && <button onClick={() => onResend(user)} className="rounded-md px-2 py-1 font-semibold text-[#3525cd] hover:bg-[#eff4ff]">Resend</button>}
+        {user.invite_status === 'invited' && <button onClick={() => onResend(user)} className="rounded-md px-2 py-1 font-semibold text-[#3525cd] hover:bg-[#eff4ff]">Resend / Get link</button>}
         <button onClick={() => onToggle(user)} disabled={isCurrentUser} className="rounded-md px-2 py-1 font-semibold text-[#3525cd] hover:bg-[#eff4ff] disabled:cursor-not-allowed disabled:text-[#94a3b8]">
           {user.is_active ? 'Deactivate' : 'Activate'}
         </button>
