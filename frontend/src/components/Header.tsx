@@ -9,11 +9,20 @@ import { logout } from '@/lib/api';
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { requests, globalSearchQuery, setGlobalSearchQuery, currentUser, setIsProfileModalOpen, notifications } = useApp();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const {
+    globalSearchQuery,
+    setGlobalSearchQuery,
+    currentUser,
+    setIsProfileModalOpen,
+    notifications,
+    unreadNotificationCount,
+    markAllNotificationsAsRead,
+    markNotificationAsRead,
+  } = useApp();
+  const [headerNotificationsOpen, setHeaderNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const pendingCount = requests.filter((r) => r.status === 'pending').length;
+  const pendingCount = unreadNotificationCount;
   const isAdmin = currentUser.role.toLowerCase() === 'admin';
 
   useEffect(() => {
@@ -31,6 +40,12 @@ export function Header() {
     { label: 'Requests', href: '/requests', icon: 'list_alt' },
     { label: 'Reports', href: '/reports', icon: 'bar_chart' },
     ...(isAdmin ? [{ label: 'Admin', href: '/admin', icon: 'manage_accounts' }] : []),
+    {
+      label: 'Notifications',
+      href: '/notifications',
+      icon: 'notifications',
+      badge: pendingCount > 0 ? (pendingCount > 99 ? '99+' : String(pendingCount)) : undefined,
+    },
   ];
 
   return (
@@ -62,7 +77,7 @@ export function Header() {
 
       <header className="fixed left-0 right-0 top-0 z-30 border-b border-[#e2e8f0] bg-[#f8f9ff]/95 shadow-[0_1px_8px_rgba(15,23,42,0.03)] backdrop-blur-xl md:left-60">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
-          {/* Brand Logo & Name */}
+          {/* Brand Logo & Name for mobile */}
           <Link href="/dashboard" className="text-sm font-semibold text-[#4f46e5] md:hidden">
             ChangeFlow
           </Link>
@@ -98,10 +113,10 @@ export function Header() {
               )}
             </div>
 
-            {/* Notifications */}
+            {/* Header Notifications Dropdown Bell */}
             <div className="relative">
               <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                onClick={() => setHeaderNotificationsOpen((prev) => !prev)}
                 aria-label="Notifications"
                 className="relative p-2 rounded-lg text-[#464555] hover:bg-[#e5eeff] hover:text-[#0b1c30] transition-colors"
                 type="button"
@@ -112,30 +127,86 @@ export function Header() {
                 )}
               </button>
 
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white border border-[#e2e8f0] shadow-xl p-3 z-50 animate-in fade-in zoom-in-95">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#f1f5f9]">
-                    <span className="font-semibold text-xs text-[#0b1c30] uppercase tracking-wider">
-                      Recent Scope Alerts
-                    </span>
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[#e2dfff] text-[#3323cc] font-medium">
-                      {notifications.length} New
-                    </span>
-                  </div>
-                  <div className="py-2 flex flex-col gap-2 max-h-60 overflow-y-auto text-xs">
-                    {notifications.length === 0 && <p className="p-2 text-[#777587]">No recent activity.</p>}
-                    {notifications.map((notification) => (
-                      <div key={notification.id} className="p-2 rounded-lg bg-[#f8f9ff] border border-[#e2e8f0]/60">
-                        <span className="font-medium text-[#0b1c30]">
-                          {notification.event_type.replaceAll('_', ' ')}
+              {headerNotificationsOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setHeaderNotificationsOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-84 sm:w-96 rounded-xl bg-white border border-[#e2e8f0] shadow-xl p-3 z-50 animate-in fade-in zoom-in-95">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#f1f5f9]">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-xs text-[#0b1c30] uppercase tracking-wider">
+                          Recent Scope Alerts
                         </span>
-                        <p className="text-[#464555] text-[11px] mt-0.5">
-                          {notification.actor_name || 'System'} · {new Date(notification.created_at).toLocaleString()}
-                        </p>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#e2dfff] text-[#3323cc] font-bold">
+                          {unreadNotificationCount} New
+                        </span>
                       </div>
-                    ))}
+                      {unreadNotificationCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAllNotificationsAsRead();
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] text-[#4f46e5] hover:text-[#3525cd] hover:underline font-semibold"
+                        >
+                          <span className="material-symbols-outlined text-xs">done_all</span>
+                          <span>Mark all read</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="py-2 flex flex-col gap-1.5 max-h-72 overflow-y-auto text-xs">
+                      {notifications.length === 0 && <p className="p-4 text-center text-[#777587]">No recent activity.</p>}
+                      {notifications.slice(0, 10).map((notification) => (
+                        <div
+                          key={notification.id}
+                          onClick={() => {
+                            if (!notification.is_read) {
+                              markNotificationAsRead(notification.id);
+                            }
+                          }}
+                          className={`p-2.5 rounded-lg border transition-colors cursor-pointer ${
+                            notification.is_read
+                              ? 'bg-[#f8f9ff] border-[#e2e8f0]/60 opacity-85'
+                              : 'bg-indigo-50/40 border-indigo-100 font-medium'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[#0b1c30] font-semibold">
+                              {notification.event_type.replaceAll('_', ' ')}
+                            </span>
+                            {!notification.is_read && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#4f46e5] shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[#464555] text-[11px] mt-0.5">
+                            {notification.actor_name || 'System'} · {new Date(notification.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-2 border-t border-[#f1f5f9] flex items-center justify-between">
+                      <Link
+                        href="/notifications"
+                        onClick={() => setHeaderNotificationsOpen(false)}
+                        className="text-xs font-semibold text-[#4f46e5] hover:underline"
+                      >
+                        View all notifications →
+                      </Link>
+                      {unreadNotificationCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => markAllNotificationsAsRead()}
+                          className="text-[11px] text-[#777587] hover:text-[#0b1c30]"
+                        >
+                          Clear unread
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
 
@@ -207,7 +278,6 @@ export function Header() {
               onClick={handleLogout}
               className="mt-2 flex items-center gap-3 rounded-xl border-t border-[#e2e8f0] p-3 pt-4 text-sm font-semibold text-[#ba1a1a]"
             >
-              {' '}
               <span className="material-symbols-outlined text-lg" aria-hidden="true">
                 logout
               </span>{' '}
@@ -225,7 +295,7 @@ function NavLink({
   pathname,
   onClick,
 }: {
-  item: { label: string; href: string; icon: string };
+  item: { label: string; href: string; icon: string; badge?: string };
   pathname: string;
   onClick?: () => void;
 }) {
@@ -235,13 +305,22 @@ function NavLink({
       href={item.href}
       onClick={onClick}
       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
-        isActive ? 'bg-[#4f46e5] text-white shadow-sm' : 'text-[#464555] hover:bg-[#eff4ff] hover:text-[#0b1c30]'
+        isActive ? 'bg-[#4f46e5] text-white shadow-sm font-semibold' : 'text-[#464555] hover:bg-[#eff4ff] hover:text-[#0b1c30]'
       }`}
     >
       <span className="material-symbols-outlined text-lg" aria-hidden="true">
         {item.icon}
       </span>
-      <span>{item.label}</span>
+      <span className="flex-1">{item.label}</span>
+      {item.badge && (
+        <span
+          className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+            isActive ? 'bg-white text-[#4f46e5]' : 'bg-[#4f46e5] text-white'
+          }`}
+        >
+          {item.badge}
+        </span>
+      )}
     </Link>
   );
 }

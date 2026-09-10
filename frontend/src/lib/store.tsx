@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel, ScopeDeliverable } from './types';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { ChangeRequest, RequestStatus, IntakeChannel, UrgencyLevel, ScopeDeliverable, AppNotification } from './types';
 import {
   API_BASE_URL,
   addRequestNote,
@@ -15,9 +15,9 @@ import {
 
 export function getNextAction(status: RequestStatus): string {
   switch (status) {
-    case 'draft':
-    case 'pending': return 'Submit for developer approval';
-    case 'reviewing': return 'Waiting for developer approval';
+    case 'draft': return 'Review and add estimate';
+    case 'reviewing':
+    case 'pending': return 'Send to client for approval';
     case 'awaiting_approval': return 'Waiting for client response';
     case 'approved': return 'Begin work';
     case 'in_progress': return 'Complete and deliver';
@@ -30,8 +30,8 @@ export function getNextAction(status: RequestStatus): string {
 export function getStatusLabel(status: RequestStatus): string {
   switch (status) {
     case 'draft': return 'New';
-    case 'reviewing': return 'Reviewing';
-    case 'pending': return 'Pending';
+    case 'reviewing':
+    case 'pending': return 'Reviewing';
     case 'awaiting_approval': return 'Awaiting approval';
     case 'approved': return 'Approved';
     case 'in_progress': return 'In progress';
@@ -98,7 +98,10 @@ interface AppContextType {
   updateCurrentUser: (user: Partial<CurrentUser>) => void;
   isLoading: boolean;
   error: string | null;
-  notifications: Array<{ id: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }>;
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
+  markAllNotificationsAsRead: () => void;
+  markNotificationAsRead: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -115,13 +118,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<Array<{ id: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }>>([]);
+  const [rawNotifications, setRawNotifications] = useState<Array<{ id: string; request_id?: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }>>([]);
+
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('changeflow_read_notifications');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [lastReadNotificationAt, setLastReadNotificationAt] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem('changeflow_last_read_at');
+    } catch {
+      return null;
+    }
+  });
 
   const reloadRequests = async () => {
     try {
-      const [loadedRequests, activity] = await Promise.all([fetchRequests(), fetchActivity()]);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const [loadedRequests, activity] = await Promise.all([fetchRequests(), fetchActivity(thirtyDaysAgo)]);
       setRequests(loadedRequests);
-      setNotifications(activity.events);
+      setRawNotifications(activity.events);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to load live data');
@@ -134,10 +157,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     const load = async () => {
       try {
-        const [loadedRequests, activity] = await Promise.all([fetchRequests(), fetchActivity()]);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const [loadedRequests, activity] = await Promise.all([fetchRequests(), fetchActivity(thirtyDaysAgo)]);
         if (!active) return;
         setRequests(loadedRequests);
-        setNotifications(activity.events);
+        setRawNotifications(activity.events);
         setError(null);
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'Unable to load live data');
@@ -151,6 +175,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     events.onmessage = () => void load();
     events.onerror = () => events.close();
     return () => { active = false; window.clearInterval(refresh); events.close(); };
+  }, []);
+
+  const notifications: AppNotification[] = useMemo(() => {
+    const readSet = new Set(readNotificationIds);
+    return rawNotifications.map((n) => {
+      const isRead =
+        readSet.has(n.id) ||
+        (lastReadNotificationAt ? new Date(n.created_at).getTime() <= new Date(lastReadNotificationAt).getTime() : false);
+      return {
+        ...n,
+        is_read: isRead,
+      };
+    });
+  }, [rawNotifications, readNotificationIds, lastReadNotificationAt]);
+
+  const unreadNotificationCount = useMemo(() => {
+    return notifications.filter((n) => !n.is_read).length;
+  }, [notifications]);
+
+  const markAllNotificationsAsRead = useCallback(() => {
+    const now = new Date().toISOString();
+    setLastReadNotificationAt(now);
+    const allIds = rawNotifications.map((n) => n.id);
+    const combined = Array.from(new Set([...readNotificationIds, ...allIds]));
+    setReadNotificationIds(combined);
+    try {
+      localStorage.setItem('changeflow_last_read_at', now);
+      localStorage.setItem('changeflow_read_notifications', JSON.stringify(combined));
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [rawNotifications, readNotificationIds]);
+
+  const markNotificationAsRead = useCallback((id: string) => {
+    setReadNotificationIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      try {
+        localStorage.setItem('changeflow_read_notifications', JSON.stringify(next));
+      } catch {
+        // Ignore localStorage errors
+      }
+      return next;
+    });
   }, []);
 
   const updateCurrentUser = (updates: Partial<CurrentUser>) => {
@@ -268,6 +336,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         error,
         notifications,
+        unreadNotificationCount,
+        markAllNotificationsAsRead,
+        markNotificationAsRead,
       }}
     >
       {children}

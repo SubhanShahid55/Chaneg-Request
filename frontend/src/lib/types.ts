@@ -68,6 +68,16 @@ export interface ActivityEvent {
   created_at: string;
 }
 
+export interface AppNotification {
+  id: string;
+  request_id?: string;
+  event_type: string;
+  actor_name: string | null;
+  created_at: string;
+  event_data: Record<string, any> | null;
+  is_read?: boolean;
+}
+
 export interface PublicApprovalData {
   state: 'valid' | 'expired' | 'already_responded' | 'not_found';
   expires_at?: string;
@@ -95,4 +105,3 @@ export interface PublicApprovalData {
     responded_at: string;
   };
 }
-

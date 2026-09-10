@@ -167,7 +167,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(token && !isPublicApproval ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
@@ -290,7 +289,7 @@ export async function fetchRequest(id: string): Promise<ChangeRequest> {
 }
 
 export async function updateRequestStatus(id: string, status: RequestStatus) {
-  if (status === 'reviewing') {
+  if (status === 'pending' || status === 'awaiting_approval') {
     return apiFetch(`/requests/${encodeURIComponent(id)}/send-for-approval`, { method: 'POST', body: '{}' });
   }
   return apiFetch(`/requests/${encodeURIComponent(id)}/advance`, { method: 'POST', body: '{}' });
@@ -343,8 +342,9 @@ export async function declineApproval(token: string, reason: string) {
   return apiFetch(`/approval/${encodeURIComponent(token)}/decline`, { method: 'POST', body: JSON.stringify({ reason }) });
 }
 
-export async function fetchActivity() {
-  return apiFetch<{ events: Array<{ id: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }> }>('/events/recent');
+export async function fetchActivity(since?: string) {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '';
+  return apiFetch<{ events: Array<{ id: string; request_id?: string; event_type: string; actor_name: string | null; created_at: string; event_data: Record<string, unknown> | null }> }>(`/events/recent${query}`);
 }
 
 export async function fetchWeeklyVelocity() {

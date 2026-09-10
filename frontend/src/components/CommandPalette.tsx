@@ -72,6 +72,15 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
       },
     },
     {
+      title: 'Notifications & Alerts',
+      subtitle: 'View scope change alerts and activity audit trail',
+      icon: 'notifications',
+      action: () => {
+        onClose();
+        router.push('/notifications');
+      },
+    },
+    {
       title: 'Administration',
       subtitle: 'Manage user access, invitations, and client directory',
       icon: 'manage_accounts',
