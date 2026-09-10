@@ -134,7 +134,7 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
     }
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').upsert({
+  const profilePayload = {
     id: created.user.id,
     email,
     name,
@@ -142,10 +142,19 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
     is_active: true,
     avatar_url: null,
     job_title: jobTitle,
-  }).select().single();
-  if (profileError) {
+  };
+  let { data: profile, error: profileError } = await supabaseAdmin.from('profiles').upsert(profilePayload).select().single();
+
+  // Keep invitations compatible with deployments that have not applied the job title migration yet.
+  if (profileError?.message.toLowerCase().includes('job_title') && profileError.message.toLowerCase().includes('column')) {
+    const { job_title: _jobTitle, ...legacyProfilePayload } = profilePayload;
+    ({ data: profile, error: profileError } = await supabaseAdmin.from('profiles').upsert(legacyProfilePayload).select().single());
+  }
+
+  if (profileError || !profile) {
+    console.error('Profile creation failed after invitation:', profileError?.message || 'No profile returned');
     await supabaseAdmin.auth.admin.deleteUser(created.user.id);
-    res.status(500).json({ error: 'User registration could not be completed.' });
+    res.status(500).json({ error: 'User registration could not be completed. Apply the latest Supabase migrations and try again.' });
     return;
   }
 
