@@ -7,6 +7,8 @@ describe('calculateProjectRollup', () => {
     const result = calculateProjectRollup(
       [{ id: 'one', project_id: 'project', description: 'Build', hours: 10, category: 'Backend', complexity: 'standard' }],
       [
+        { deliverables: [{ id: 'change-one', request_id: 'request', description: 'Export', hours: 4, category: 'Frontend', complexity: 'simple' }], cost: 1200, timeline_days: 2 },
+        { deliverables: [{ id: 'change-two', request_id: 'request', description: 'Tests', hours: 3, category: 'QA & DevOps', complexity: 'simple' }], cost: 2400, timeline_days: 3 },
         { deliverables: [{ id: 'change-one', request_id: 'request', description: 'Export', hours: 4, category: 'Frontend', complexity: 'simple' }], hourly_rate: 300, timeline_days: 2 },
         { deliverables: [{ id: 'change-two', request_id: 'request', description: 'Tests', hours: 3, category: 'QA & DevOps', complexity: 'simple' }], hourly_rate: 800, timeline_days: 3 },
       ],

@@ -68,6 +68,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
 
   let query = supabaseAdmin
     .from('change_requests')
+    .select('reference_code, title, status, priority, hours, cost, source_channel, created_at, clients(company_name, contact_name)');
     .select('reference_code, title, status, priority, hourly_rate, source_channel, created_at, clients(company_name, contact_name), deliverables(hours)');
 
   if (status === 'needs_review') {
@@ -87,6 +88,18 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  const rows = (data ?? []).map((r: any) => ({
+    reference_code: r.reference_code,
+    title: r.title,
+    company_name: r.clients?.company_name ?? '',
+    contact_name: r.clients?.contact_name ?? '',
+    status: r.status,
+    priority: r.priority,
+    hours: r.hours,
+    cost: r.cost,
+    source_channel: r.source_channel,
+    created_at: r.created_at,
+  }));
   const rows = (data ?? []).map((r: any) => {
     const hours = (r.deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours || 0), 0);
     const cost = hours * (Number(r.hourly_rate) || 0);
@@ -142,6 +155,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
   let query = supabaseAdmin
     .from('change_requests')
+    .select('*, clients(company_name, contact_name, contact_email)', { count: 'exact' });
     .select('*, clients(company_name, contact_name, contact_email), deliverables(hours)', { count: 'exact' });
 
   if (status === 'needs_review') {
@@ -284,6 +298,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       source_channel: body.source_channel || null,
       priority: body.priority || 'standard',
       hourly_rate: body.hourly_rate || null,
+      hours: estimate.hours,
+      cost: estimate.cost,
       target_delivery_date: body.target_delivery_date || null,
       timeline_days: body.timeline_days || null,
       status: 'draft',
@@ -408,6 +424,7 @@ router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void>
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('change_requests')
+    .update({ hourly_rate: body.hourly_rate, hours: estimate.hours, cost: estimate.cost, target_delivery_date: body.target_delivery_date, timeline_days: body.timeline_days, updated_at: now })
     .update({ hourly_rate: body.hourly_rate, target_delivery_date: body.target_delivery_date, timeline_days: body.timeline_days, updated_at: now })
     .eq('id', targetId)
     .select()
