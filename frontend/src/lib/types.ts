@@ -1,13 +1,39 @@
 export type RequestStatus = 'draft' | 'pending' | 'approved' | 'declined' | 'in_progress' | 'completed' | 'reviewing' | 'awaiting_approval';
 export type UrgencyLevel = 'Low' | 'Medium' | 'High' | 'Critical';
 export type IntakeChannel = 'Portal' | 'call' | 'text' | 'meeting' | 'email' | '';
+export type DeliverableCategory = 'Frontend' | 'Backend' | 'Database / API' | 'QA & DevOps';
+export type DeliverableComplexity = 'simple' | 'standard' | 'complex';
 
 export interface ScopeDeliverable {
   id: string;
   title: string;
   description: string;
   hours: number;
-  category: 'Frontend' | 'Backend' | 'Database / API' | 'QA & DevOps';
+  category: DeliverableCategory;
+  complexity: DeliverableComplexity;
+}
+
+export interface ProjectDeliverable {
+  id: string;
+  project_id: string;
+  description: string;
+  hours: number;
+  category: DeliverableCategory;
+  complexity: DeliverableComplexity;
+}
+
+export interface Project {
+  id: string;
+  client_id: string;
+  name: string;
+  description: string | null;
+  scope_summary: string | null;
+  agreed_budget: number | null;
+  timeline_days: number | null;
+  clients?: { company_name: string };
+  original_deliverables?: ProjectDeliverable[];
+  approved_change_requests?: ChangeRequest[];
+  rollup?: { originalHours: number; approvedChangeHours: number; totalHours: number; approvedChangeCount: number; originalBudget: number | null; approvedChangeCost: number; currentBudget: number | null; originalTimelineDays: number | null; approvedChangeTimelineDays: number; currentTimelineDays: number | null };
 }
 
 export interface ClientContact {

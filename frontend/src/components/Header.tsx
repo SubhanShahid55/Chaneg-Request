@@ -38,6 +38,7 @@ export function Header() {
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
     { label: 'Requests', href: '/requests', icon: 'list_alt' },
+    { label: 'Projects', href: '/projects', icon: 'folder' },
     { label: 'Reports', href: '/reports', icon: 'bar_chart' },
     ...(isAdmin ? [{ label: 'Admin', href: '/admin', icon: 'manage_accounts' }] : []),
     {

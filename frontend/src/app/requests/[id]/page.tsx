@@ -149,6 +149,7 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
       description: newDeliverableTitle.trim(),
       hours: Math.max(1, newDeliverableHours),
       category: newDeliverableCategory,
+      complexity: 'standard',
     };
     const updated = [...deliverables, newDel];
     setDeliverables(updated);

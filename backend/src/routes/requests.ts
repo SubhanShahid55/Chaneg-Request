@@ -6,6 +6,7 @@ import { generateApprovalToken } from '../utils/tokens.js';
 import { buildCsv } from '../utils/csv.js';
 import { config } from '../config.js';
 import { getCached, invalidateCache, invalidateCachePattern, setCached } from '../services/cache.js';
+import { calculateEstimate, normalizeDeliverables } from '../services/estimate.js';
 import type { RequestStatus, CreateRequestBody, UpdateEstimateBody } from '../types.js';
 
 const router = Router();
@@ -67,7 +68,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
 
   let query = supabaseAdmin
     .from('change_requests')
-    .select('reference_code, title, status, priority, hours, cost, source_channel, created_at, clients(company_name, contact_name)');
+    .select('reference_code, title, status, priority, hourly_rate, source_channel, created_at, clients(company_name, contact_name), deliverables(hours)');
 
   if (status === 'needs_review') {
     query = query.in('status', ['draft', 'pending', 'reviewing']);
@@ -86,18 +87,22 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const rows = (data ?? []).map((r: any) => ({
-    reference_code: r.reference_code,
-    title: r.title,
-    company_name: r.clients?.company_name ?? '',
-    contact_name: r.clients?.contact_name ?? '',
-    status: r.status,
-    priority: r.priority,
-    hours: r.hours,
-    cost: r.cost,
-    source_channel: r.source_channel,
-    created_at: r.created_at,
-  }));
+  const rows = (data ?? []).map((r: any) => {
+    const hours = (r.deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours || 0), 0);
+    const cost = hours * (Number(r.hourly_rate) || 0);
+    return {
+      reference_code: r.reference_code,
+      title: r.title,
+      company_name: r.clients?.company_name ?? '',
+      contact_name: r.clients?.contact_name ?? '',
+      status: r.status,
+      priority: r.priority,
+      hours,
+      cost,
+      source_channel: r.source_channel,
+      created_at: r.created_at,
+    };
+  });
 
   const columns = [
     'reference_code',
@@ -137,7 +142,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
   let query = supabaseAdmin
     .from('change_requests')
-    .select('*, clients(company_name, contact_name, contact_email)', { count: 'exact' });
+    .select('*, clients(company_name, contact_name, contact_email), deliverables(hours)', { count: 'exact' });
 
   if (status === 'needs_review') {
     query = query.in('status', ['draft', 'pending', 'reviewing']);
@@ -239,6 +244,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  if (typeof body.hourly_rate !== 'number' || !Number.isFinite(body.hourly_rate) || body.hourly_rate < 0) {
+    res.status(400).json({ error: 'A valid hourly rate is required.' });
+    return;
+  }
+
+  let deliverables;
+  try {
+    deliverables = normalizeDeliverables(body.deliverables);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid deliverables.' });
+    return;
+  }
+  const estimate = calculateEstimate(deliverables, body.hourly_rate);
+
   // Generate reference code
   const { data: maxRow } = await supabaseAdmin
     .from('change_requests')
@@ -265,8 +284,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       source_channel: body.source_channel || null,
       priority: body.priority || 'standard',
       hourly_rate: body.hourly_rate || null,
-      hours: body.hours || null,
-      cost: body.cost || null,
       target_delivery_date: body.target_delivery_date || null,
       timeline_days: body.timeline_days || null,
       status: 'draft',
@@ -285,16 +302,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   await invalidateCache('stats:summary', 'stats:status-breakdown');
   await invalidateCachePattern('requests:list:*');
 
-  // Insert deliverables
-  if (body.deliverables?.length) {
-    await supabaseAdmin.from('deliverables').insert(
-      body.deliverables.map((d) => ({
-        request_id: created.id,
-        description: d.description,
-        hours: d.hours,
-        category: d.category,
-      }))
-    );
+  const { error: deliverableError } = await supabaseAdmin.from('deliverables').insert(
+    deliverables.map((d) => ({ request_id: created.id, ...d }))
+  );
+  if (deliverableError) {
+    await supabaseAdmin.from('change_requests').delete().eq('id', created.id);
+    res.status(500).json({ error: deliverableError.message });
+    return;
   }
 
   // Insert exclusions
@@ -353,14 +367,19 @@ router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void>
   const userId = req.userId;
   const body = req.body as UpdateEstimateBody;
 
-  if (body.hours !== undefined && (typeof body.hours !== 'number' || body.hours < 0 || isNaN(body.hours))) {
-    res.status(400).json({ error: 'Estimated hours must be a valid non-negative number.' });
-    return;
-  }
   if (body.hourly_rate !== undefined && (typeof body.hourly_rate !== 'number' || body.hourly_rate < 0 || isNaN(body.hourly_rate))) {
     res.status(400).json({ error: 'Hourly rate must be a valid non-negative number.' });
     return;
   }
+
+  let deliverables;
+  try {
+    deliverables = normalizeDeliverables(body.deliverables);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid deliverables.' });
+    return;
+  }
+  const estimate = calculateEstimate(deliverables, body.hourly_rate);
 
   // Find request by id or reference code
   const { data: targetReq } = await supabaseAdmin
@@ -373,42 +392,33 @@ router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void>
   const refCode = targetReq?.reference_code || id;
   const now = new Date().toISOString();
 
+  // Replace deliverables
+  const { error: deleteDeliverablesError } = await supabaseAdmin.from('deliverables').delete().eq('request_id', targetId);
+  if (deleteDeliverablesError) {
+    res.status(500).json({ error: deleteDeliverablesError.message });
+    return;
+  }
+  const { error: insertDeliverablesError } = await supabaseAdmin.from('deliverables').insert(
+    deliverables.map((d) => ({ request_id: targetId, ...d }))
+  );
+  if (insertDeliverablesError) {
+    res.status(500).json({ error: insertDeliverablesError.message });
+    return;
+  }
+
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('change_requests')
-    .update({
-      hourly_rate: body.hourly_rate,
-      hours: body.hours,
-      cost: body.cost,
-      target_delivery_date: body.target_delivery_date,
-      timeline_days: body.timeline_days,
-      updated_at: now,
-    })
+    .update({ hourly_rate: body.hourly_rate, target_delivery_date: body.target_delivery_date, timeline_days: body.timeline_days, updated_at: now })
     .eq('id', targetId)
     .select()
     .single();
-
   if (updateError || !updated) {
-    res.status(500).json({
-      error: updateError?.message ?? `Failed to update estimate for ${refCode}. Verify the input fields and try again.`,
-    });
+    res.status(500).json({ error: updateError?.message ?? `Failed to update estimate for ${refCode}. Verify the input fields and try again.` });
     return;
   }
 
   await invalidateCache('stats:summary', 'stats:status-breakdown');
   await invalidateCachePattern('requests:list:*');
-
-  // Replace deliverables
-  await supabaseAdmin.from('deliverables').delete().eq('request_id', targetId);
-  if (body.deliverables?.length) {
-    await supabaseAdmin.from('deliverables').insert(
-      body.deliverables.map((d) => ({
-        request_id: targetId,
-        description: d.description,
-        hours: d.hours,
-        category: d.category,
-      }))
-    );
-  }
 
   // Replace exclusions
   await supabaseAdmin.from('exclusions').delete().eq('request_id', targetId);
@@ -427,8 +437,8 @@ router.patch('/:id/estimate', async (req: Request, res: Response): Promise<void>
     'estimate_updated',
     {
       hourly_rate: body.hourly_rate,
-      hours: body.hours,
-      cost: body.cost,
+      hours: estimate.hours,
+      cost: estimate.cost,
     },
     actorName
   );

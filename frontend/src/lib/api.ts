@@ -1,4 +1,4 @@
-import { ChangeRequest, RequestStatus, ScopeDeliverable } from './types';
+import { ChangeRequest, Project, RequestStatus, ScopeDeliverable } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 export const API_BASE_URL = API_URL;
@@ -188,6 +188,18 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 function mapRequest(row: any): ChangeRequest {
   const client = row.clients || row.client || {};
   const project = row.projects || row.project || {};
+  const deliverables = (row.deliverables || []).map((item: any) => ({
+    id: item.id,
+    title: item.description,
+    description: item.description,
+    hours: Number(item.hours || 0),
+    category: item.category,
+    complexity: item.complexity || 'standard',
+  }));
+  const totalHours = deliverables.reduce((acc: number, d: any) => acc + d.hours, 0);
+  const hourlyRate = Number(row.hourly_rate || 0);
+  const totalCost = totalHours * hourlyRate;
+
   return {
     id: row.reference_code || row.id,
     databaseId: row.id,
@@ -201,9 +213,9 @@ function mapRequest(row: any): ChangeRequest {
     channelSource: row.source_channel || '',
     urgency: row.priority === 'critical' ? 'Critical' : row.priority === 'priority' ? 'High' : 'Medium',
     status: row.status,
-    estimatedHours: Number(row.hours || 0),
-    hourlyRate: Number(row.hourly_rate || 0),
-    estimatedCost: Number(row.cost || 0),
+    estimatedHours: totalHours,
+    hourlyRate: hourlyRate,
+    estimatedCost: totalCost,
     targetSprint: row.target_delivery_date || '',
     targetTurnaroundDays: Number(row.timeline_days || 0),
     createdAt: row.created_at,
@@ -219,13 +231,7 @@ function mapRequest(row: any): ChangeRequest {
       role: row.profiles?.role || '',
       avatarUrl: row.profiles?.avatar_url || '',
     },
-    deliverables: (row.deliverables || []).map((item: any) => ({
-      id: item.id,
-      title: item.description,
-      description: item.description,
-      hours: Number(item.hours || 0),
-      category: item.category,
-    })),
+    deliverables,
     exclusions: (row.exclusions || []).map((item: any) => item.description),
     approvalToken: row.approval_link?.token || '',
     approvalDetails: row.approval_response ? {
@@ -264,6 +270,32 @@ export async function fetchClients(): Promise<ClientOption[]> {
   return response.clients;
 }
 
+export async function fetchProjects(): Promise<Project[]> {
+  const response = await apiFetch<{ projects: Project[] }>('/projects');
+  return response.projects;
+}
+
+export async function fetchClientProjects(clientId: string): Promise<Project[]> {
+  const response = await apiFetch<{ projects: Project[] }>(`/projects/client/${encodeURIComponent(clientId)}`);
+  return response.projects;
+}
+
+export async function fetchProject(id: string): Promise<Project> {
+  return apiFetch<Project>(`/projects/${encodeURIComponent(id)}`);
+}
+
+export async function createProject(data: {
+  client_id: string;
+  name: string;
+  description?: string;
+  scope_summary?: string;
+  agreed_budget?: number;
+  timeline_days?: number;
+  deliverables: Array<{ description: string; hours?: number; category: string; complexity?: string }>;
+}) {
+  return apiFetch<Project>('/projects', { method: 'POST', body: JSON.stringify(data) });
+}
+
 export async function createClient(data: { company_name: string; contact_name: string; contact_email: string }) {
   return apiFetch<{ client: ClientOption }>('/clients', { method: 'POST', body: JSON.stringify(data) });
 }
@@ -276,8 +308,7 @@ export async function createRequest(data: {
   priority?: string;
   project_id?: string;
   hourly_rate?: number;
-  hours?: number;
-  cost?: number;
+  deliverables: Array<{ description: string; hours?: number; category: string; complexity?: string }>;
   target_delivery_date?: string;
   timeline_days?: number;
 }) {
@@ -312,7 +343,7 @@ export async function updateEstimate(id: string, data: {
   cost?: number;
   target_delivery_date?: string;
   timeline_days?: number;
-  deliverables?: Array<{ description: string; hours: number; category: string }>;
+  deliverables?: Array<{ description: string; hours?: number; category: string; complexity?: string }>;
   exclusions?: string[];
 }) {
   return apiFetch<any>(`/requests/${encodeURIComponent(id)}/estimate`, {

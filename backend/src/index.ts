@@ -11,6 +11,7 @@ import statsRoutes from './routes/stats.js';
 import approvalRoutes from './routes/approval.js';
 import eventsRoutes from './routes/events.js';
 import adminRoutes from './routes/admin.js';
+import projectRoutes from './routes/projects.js';
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/auth', authRoutes);                          // POST /auth/session is 
 app.use('/profile', requireAuth, authRoutes);           // PATCH /profile
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/clients', requireAuth, clientRoutes);
+app.use('/projects', requireAuth, projectRoutes);
 app.use('/requests', requireAuth, requestRoutes);
 app.use('/stats', requireAuth, statsRoutes);
 app.use('/events', requireAuth, eventsRoutes);

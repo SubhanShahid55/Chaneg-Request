@@ -168,8 +168,8 @@ router.get('/:token', async (req: Request, res: Response): Promise<void> => {
       title: request.title,
       client_quote: request.client_quote,
       priority: request.priority,
-      cost: request.cost,
-      hours: request.hours,
+      cost: (deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours), 0) * Number(request.hourly_rate || 0),
+      hours: (deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours), 0),
       hourly_rate: request.hourly_rate,
       target_delivery_date: request.target_delivery_date,
       timeline_days: request.timeline_days,
@@ -245,6 +245,10 @@ router.post('/:token/approve', async (req: Request, res: Response): Promise<void
     created_at: now,
   });
 
+  // Fetch deliverables for accurate cost calculation
+  const { data: deliverables } = await supabaseAdmin.from('deliverables').select('hours').eq('request_id', request.id);
+  const cost = (deliverables || []).reduce((acc, d) => acc + Number(d.hours), 0) * Number(request.hourly_rate || 0);
+
   // Send team notification
   try {
     await sendTeamNotification(
@@ -254,7 +258,7 @@ router.post('/:token/approve', async (req: Request, res: Response): Promise<void
         <p><strong>${request.reference_code}:</strong> ${request.title}</p>
         <p><strong>Client:</strong> ${client?.company_name} (${client?.contact_name})</p>
         <p><strong>Confirmation Code:</strong> ${confirmationCode}</p>
-        <p><strong>Estimated Cost:</strong> $${request.cost?.toLocaleString() || 'N/A'}</p>
+        <p><strong>Estimated Cost:</strong> $${cost.toLocaleString()}</p>
         <p>The request is now ready to be marked as in progress.</p>
       `
     );

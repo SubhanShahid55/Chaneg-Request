@@ -2,6 +2,7 @@ export type RequestStatus = 'draft' | 'pending' | 'reviewing' | 'awaiting_approv
 export type Priority = 'standard' | 'priority' | 'critical';
 export type SourceChannel = 'call' | 'text' | 'meeting' | 'email';
 export type DeliverableCategory = 'Frontend' | 'Backend' | 'Database / API' | 'QA & DevOps';
+export type DeliverableComplexity = 'simple' | 'standard' | 'complex';
 export interface Profile {
     id: string;
     name: string;
@@ -23,6 +24,10 @@ export interface Project {
     id: string;
     client_id: string;
     name: string;
+    description: string | null;
+    scope_summary: string | null;
+    agreed_budget: number | null;
+    timeline_days: number | null;
 }
 export interface ChangeRequest {
     id: string;
@@ -49,6 +54,15 @@ export interface Deliverable {
     description: string;
     hours: number;
     category: string;
+    complexity: DeliverableComplexity;
+}
+export interface ProjectDeliverable {
+    id: string;
+    project_id: string;
+    description: string;
+    hours: number;
+    category: DeliverableCategory;
+    complexity: DeliverableComplexity;
 }
 export interface Exclusion {
     id: string;
@@ -100,21 +114,23 @@ export interface CreateRequestBody {
     timeline_days?: number;
     deliverables?: Array<{
         description: string;
-        hours: number;
+        hours?: number;
         category: string;
+        complexity?: string;
     }>;
     exclusions?: string[];
 }
 export interface UpdateEstimateBody {
     hourly_rate: number;
-    hours: number;
-    cost: number;
+    hours?: number;
+    cost?: number;
     target_delivery_date: string;
     timeline_days: number;
     deliverables: Array<{
         description: string;
-        hours: number;
+        hours?: number;
         category: string;
+        complexity?: string;
     }>;
     exclusions: string[];
 }

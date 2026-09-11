@@ -256,8 +256,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         source_channel: data.channel === 'Portal' ? undefined : data.channel,
         priority: data.urgency === 'Critical' ? 'critical' : data.urgency === 'High' ? 'priority' : 'standard',
         hourly_rate: data.hourlyRate,
-        hours: data.estimatedHours,
-        cost: data.estimatedCost,
+        deliverables: (data.deliverables || []).map((item) => ({
+          description: item.description || item.title,
+          hours: item.hours,
+          category: item.category,
+          complexity: item.complexity,
+        })),
         target_delivery_date: data.targetSprint,
         timeline_days: data.targetTurnaroundDays,
       });
