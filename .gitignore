@@ -2,6 +2,9 @@ node_modules
 .next
 out
 dist
+backend/dist/
+frontend/next-env.d.ts
+next-env.d.ts
 .DS_Store
 *.log
 
