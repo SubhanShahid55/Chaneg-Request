@@ -14,7 +14,7 @@ function blankDeliverable(): ScopeDeliverable {
 }
 
 export function SlideoverDrawer() {
-  const { isSlideoverOpen, setIsSlideoverOpen, addRequest, showToast } = useApp();
+  const { isSlideoverOpen, setIsSlideoverOpen, addRequest, showToast, currentUser } = useApp();
 
   const [step, setStep] = useState(1);
 
@@ -47,7 +47,7 @@ export function SlideoverDrawer() {
       if (e.key === 'Escape' && isSlideoverOpen) {
         setIsSlideoverOpen(false);
       }
-      if (e.key === 'n' || e.key === 'N') {
+      if (currentUser?.role === 'admin' && (e.key === 'n' || e.key === 'N')) {
         const activeTag = (document.activeElement?.tagName || '').toLowerCase();
         if (!['input', 'textarea', 'select'].includes(activeTag)) {
           e.preventDefault();
@@ -57,16 +57,23 @@ export function SlideoverDrawer() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSlideoverOpen, setIsSlideoverOpen]);
+  }, [currentUser?.role, isSlideoverOpen, setIsSlideoverOpen]);
 
-  if (!isSlideoverOpen) return null;
+  if (!isSlideoverOpen || currentUser?.role !== 'admin') return null;
 
   const totalHours = deliverables.reduce((sum, item) => sum + Number(item.hours || 0), 0);
   const updateDeliverable = (id: string, updates: Partial<ScopeDeliverable>) => setDeliverables((items) => items.map((item) => item.id === id ? { ...item, ...updates } : item));
   const createInlineProject = async () => {
     if (!client || !newProjectName.trim()) return;
     try {
-      const created = await createProject({ client_id: client, name: newProjectName.trim(), deliverables: [{ description: title.trim() || 'Initial scope', hours: 1, category: 'Frontend', complexity: 'simple' }] });
+      const created = await createProject({
+        client_id: client,
+        name: newProjectName.trim(),
+        scope_summary: `Initial baseline scope for ${newProjectName.trim()}`,
+        agreed_budget: 10000,
+        timeline_days: 30,
+        deliverables: [{ description: title.trim() || 'Initial scope', hours: 1, category: 'Frontend', complexity: 'simple' }],
+      });
       setProjects((items) => [...items, created]); setProject(created.id); setNewProjectName(''); setShowProjectForm(false);
     } catch (error) { showToast('Project not created', error instanceof Error ? error.message : 'Unable to create project.', 'error'); }
   };

@@ -253,6 +253,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const userId = req.userId;
   const body = req.body as CreateRequestBody;
 
+  if (req.userRole !== 'admin') {
+    res.status(403).json({ error: 'Only admins can create change requests.' });
+    return;
+  }
+
   if (!body.client_id || !body.title) {
     res.status(400).json({ error: 'A client and request title are required to create a change request.' });
     return;
@@ -533,11 +538,6 @@ router.post('/:id/approve-review', async (req: Request, res: Response): Promise<
   const id = req.params.id as string;
   const userId = req.userId;
 
-  if (req.userRole !== 'admin') {
-    res.status(403).json({ error: 'Only admin users can approve requests for client approval.' });
-    return;
-  }
-
   try {
     const { data: request, error: reqError } = await supabaseAdmin
       .from('change_requests')
@@ -623,10 +623,6 @@ router.post('/:id/request-review-changes', async (req: Request, res: Response): 
   const userId = req.userId;
   const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
 
-  if (req.userRole !== 'admin') {
-    res.status(403).json({ error: 'Only admin users can request review changes.' });
-    return;
-  }
   if (!reason) {
     res.status(400).json({ error: 'A reason is required when sending a request back for changes.' });
     return;

@@ -7,6 +7,8 @@ process.env.NODE_ENV = 'test';
 describe('HTTP API Security & Route Integration Tests', () => {
   let server: Server;
   let baseUrl: string;
+  let adminToken: string;
+  let stdToken: string;
 
   before(async () => {
     const { default: app } = await import('../index.js');
@@ -19,6 +21,23 @@ describe('HTTP API Security & Route Integration Tests', () => {
         resolve();
       });
     });
+
+    const { supabaseAdmin } = await import('../supabase.js');
+    const { config } = await import('../config.js');
+    const { createClient } = await import('@supabase/supabase-js');
+    const authClient = createClient(config.supabaseUrl, config.supabaseAnonKey, { auth: { persistSession: false } });
+
+    // Acquire session for standard user
+    const linkStd = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: 'subhanshahid.dev@gmail.com' });
+    const verifyStd = await authClient.auth.verifyOtp({ token_hash: linkStd.data.properties.hashed_token, type: 'email' });
+    const verifyStd = await authClient.auth.verifyOtp({ token_hash: linkStd.data?.properties?.hashed_token || '', type: 'email' });
+    stdToken = verifyStd.data.session?.access_token || '';
+
+    // Acquire session for admin user
+    const linkAdmin = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: 'admin@imant.com' });
+    const verifyAdmin = await authClient.auth.verifyOtp({ token_hash: linkAdmin.data.properties.hashed_token, type: 'email' });
+    const verifyAdmin = await authClient.auth.verifyOtp({ token_hash: linkAdmin.data?.properties?.hashed_token || '', type: 'email' });
+    adminToken = verifyAdmin.data.session?.access_token || '';
   });
 
   after(async () => {
@@ -155,6 +174,141 @@ describe('HTTP API Security & Route Integration Tests', () => {
       assert.strictEqual(res.status, 200);
       const data = await res.json() as any;
       assert.strictEqual(data.name, 'ChangeFlow API');
+    });
+  });
+
+  describe('Role Permissions & Access Control', () => {
+    it('blocks standard users from POST /requests with 403 Forbidden', async () => {
+      const res = await fetch(`${baseUrl}/requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${stdToken}` },
+        body: JSON.stringify({ client_id: 'some-id', title: 'Developer Request' }),
+      });
+      assert.strictEqual(res.status, 403);
+      const data = await res.json() as any;
+      assert.match(data.error, /Only admins can create change requests/i);
+    });
+
+    it('allows standard users to access approve-review without 403 Forbidden', async () => {
+      const res = await fetch(`${baseUrl}/requests/nonexistent-id/approve-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${stdToken}` },
+        body: JSON.stringify({}),
+      });
+      assert.notStrictEqual(res.status, 403);
+      assert.strictEqual(res.status, 404);
+    });
+
+    it('allows standard users to access request-review-changes without 403 Forbidden', async () => {
+      const res = await fetch(`${baseUrl}/requests/nonexistent-id/request-review-changes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${stdToken}` },
+        body: JSON.stringify({ reason: 'Scope needs adjustments' }),
+      });
+      assert.notStrictEqual(res.status, 403);
+      assert.strictEqual(res.status, 404);
+    });
+
+    it('allows standard users to post internal notes without 403 Forbidden', async () => {
+      const res = await fetch(`${baseUrl}/requests/nonexistent-id/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${stdToken}` },
+        body: JSON.stringify({ content: '' }),
+      });
+      assert.notStrictEqual(res.status, 403);
+      assert.strictEqual(res.status, 400); // blank note content rejected with 400, not 403
+    });
+  });
+
+  describe('Project Baseline Mandatory Validation', () => {
+    it('rejects project creation without scope_summary with 400', async () => {
+      const res = await fetch(`${baseUrl}/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          client_id: 'some-client-id',
+          name: 'No Scope Project',
+          agreed_budget: 50000,
+          timeline_days: 30,
+          deliverables: [{ description: 'Feature A', hours: 10 }],
+        }),
+      });
+      assert.strictEqual(res.status, 400);
+      const data = await res.json() as any;
+      assert.match(data.error, /Scope summary is required/i);
+    });
+
+    it('rejects project creation with non-positive budget with 400', async () => {
+      const res = await fetch(`${baseUrl}/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          client_id: 'some-client-id',
+          name: 'Zero Budget Project',
+          scope_summary: 'Full scope outline',
+          agreed_budget: 0,
+          timeline_days: 30,
+          deliverables: [{ description: 'Feature A', hours: 10 }],
+        }),
+      });
+      assert.strictEqual(res.status, 400);
+      const data = await res.json() as any;
+      assert.match(data.error, /agreed budget greater than 0/i);
+    });
+
+    it('rejects project creation with non-positive timeline with 400', async () => {
+      const res = await fetch(`${baseUrl}/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          client_id: 'some-client-id',
+          name: 'Zero Timeline Project',
+          scope_summary: 'Full scope outline',
+          agreed_budget: 10000,
+          timeline_days: 0,
+          deliverables: [{ description: 'Feature A', hours: 10 }],
+        }),
+      });
+      assert.strictEqual(res.status, 400);
+      const data = await res.json() as any;
+      assert.match(data.error, /timeline in days greater than 0/i);
+    });
+
+    it('rejects project creation with empty deliverables with 400', async () => {
+      const res = await fetch(`${baseUrl}/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({
+          client_id: 'some-client-id',
+          name: 'No Deliverables Project',
+          scope_summary: 'Full scope outline',
+          agreed_budget: 10000,
+          timeline_days: 30,
+          deliverables: [],
+        }),
+      });
+      assert.strictEqual(res.status, 400);
+      const data = await res.json() as any;
+      assert.match(data.error, /At least one deliverable/i);
+    });
+  });
+
+  describe('Weekly Velocity Reporting Accuracy', () => {
+    it('returns exactly 8 trailing weeks with approved and pending counts', async () => {
+      const res = await fetch(`${baseUrl}/stats/weekly-velocity`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.strictEqual(res.status, 200);
+      const data = await res.json() as any;
+      assert.ok(Array.isArray(data.weeks));
+      assert.strictEqual(data.weeks.length, 8);
+      for (const w of data.weeks) {
+        assert.ok(typeof w.week === 'string');
+        assert.ok(typeof w.approved === 'number');
+        assert.ok(typeof w.pending === 'number');
+      }
+      const totalPending = data.weeks.reduce((sum: number, w: any) => sum + w.pending, 0);
+      assert.ok(totalPending >= 3, 'Draft and pending requests must be counted in velocity pending count');
     });
   });
 });

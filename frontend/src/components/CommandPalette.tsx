@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store';
 
 export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const router = useRouter();
-  const { requests, setIsSlideoverOpen } = useApp();
+  const { requests, setIsSlideoverOpen, currentUser } = useApp();
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -35,15 +35,19 @@ export function CommandPalette({ isOpen, onClose }: { isOpen: boolean; onClose: 
   );
 
   const quickActions = [
-    {
-      title: 'New Change Request',
-      subtitle: 'Open Slide-over panel to log request',
-      icon: 'add_circle',
-      action: () => {
-        onClose();
-        setIsSlideoverOpen(true);
-      },
-    },
+    ...(currentUser?.role === 'admin'
+      ? [
+          {
+            title: 'New Change Request',
+            subtitle: 'Open Slide-over panel to log request',
+            icon: 'add_circle',
+            action: () => {
+              onClose();
+              setIsSlideoverOpen(true);
+            },
+          },
+        ]
+      : []),
     {
       title: 'Dashboard',
       subtitle: 'Overview of all requests, velocity, and pipeline',

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin, supabasePublic, presentProfile } from '../supabase.js';
+import { supabaseAdmin, supabasePublic, createAuthClient, presentProfile } from '../supabase.js';
 import { config } from '../config.js';
 
 const router = Router();
@@ -97,6 +98,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   }
 
   const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+  const authClient = createAuthClient();
+  const { data, error } = await authClient.auth.signInWithPassword({ email, password });
   if (error || !data.user || !data.session) {
     res.status(401).json({ error: 'The email or password is incorrect.' });
     return;

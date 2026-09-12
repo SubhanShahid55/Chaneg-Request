@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowUpRight, BarChart3, CheckCircle2, ChevronDown, CircleAlert, Clock3,
@@ -54,17 +54,70 @@ const statusStyles: Record<string, string> = {
   declined: 'bg-rose-50 text-rose-700 ring-rose-200',
 };
 
+function formatWeekLabel(dateStr: string): string {
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    }
+  } catch {
+    // fallback
+  }
+  return dateStr;
+}
+
+function getBezierPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+  let path = `M ${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i === 0 ? 0 : i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    path += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  return path;
+}
+
+function getAreaPath(points: Array<{ x: number; y: number }>, baselineY: number): string {
+  if (points.length === 0) return '';
+  const linePath = getBezierPath(points);
+  const first = points[0];
+  const last = points[points.length - 1];
+  return `${linePath} L ${last.x.toFixed(1)},${baselineY.toFixed(1)} L ${first.x.toFixed(1)},${baselineY.toFixed(1)} Z`;
+}
+
 export function DashboardContent() {
-  const { requests, setIsSlideoverOpen, showToast, globalSearchQuery, isLoading, error, reloadRequests } = useApp();
+  const { requests, setIsSlideoverOpen, showToast, globalSearchQuery, isLoading, error, reloadRequests, currentUser } = useApp();
   const [statusFilter, setStatusFilter] = useState('all');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [velocityData, setVelocityData] = useState<Array<{ week: string; total: number; approved: number; pending: number }>>([]);
   const [activeWeek, setActiveWeek] = useState<number | null>(null);
 
+  const hasAnimatedRef = useRef(false);
+  const [isSweepActive, setIsSweepActive] = useState(false);
+
   useEffect(() => {
     const loadVelocity = () => {
       fetchWeeklyVelocity()
-        .then(({ weeks }) => setVelocityData(weeks.map((week) => ({ ...week, total: week.approved + week.pending }))))
+        .then(({ weeks }) => {
+          const mapped = (weeks || []).map((week) => ({
+            ...week,
+            total: (week.approved || 0) + (week.pending || 0),
+          }));
+          setVelocityData(mapped);
+          if (!hasAnimatedRef.current && mapped.length > 0) {
+            hasAnimatedRef.current = true;
+            setIsSweepActive(true);
+            setTimeout(() => setIsSweepActive(false), 800);
+          }
+        })
         .catch(() => setVelocityData([]));
     };
     loadVelocity();
@@ -116,16 +169,33 @@ export function DashboardContent() {
     { label: 'In progress', value: counts.inProgress, note: 'Currently being implemented', icon: Timer, tone: 'indigo', filter: 'in_progress' },
     { label: 'Completed', value: counts.completed, note: 'Delivered successfully', icon: CheckCircle2, tone: 'emerald', filter: 'completed' },
   ] as const;
-  const maxVelocity = Math.max(...velocityData.map((item) => item.total), 1);
+  const W = 800;
+  const H = 160;
+  const padLeft = 36;
+  const padRight = 36;
+  const padTop = 20;
+  const padBottom = 26;
+  const plotW = W - padLeft - padRight;
+  const plotH = H - padTop - padBottom;
+  const baselineY = padTop + plotH;
+
+  const maxVelocity = Math.max(...velocityData.map((item) => Math.max(item.total, item.approved, item.pending)), 3);
   const totalVelocity = velocityData.reduce((sum, item) => sum + item.total, 0);
   const averageVelocity = velocityData.length ? (totalVelocity / velocityData.length).toFixed(1) : '0.0';
-  const chartPoints = velocityData.map((item, index) => {
-    const x = velocityData.length > 1 ? (index / (velocityData.length - 1)) * 800 : 400;
-    const y = 94 - (item.total / maxVelocity) * 70;
-    return { ...item, x, y };
-  });
-  const chartLine = chartPoints.map(({ x, y }) => `${x},${y}`).join(' ');
-  const chartArea = chartPoints.length ? `${chartLine} 800,100 0,100` : '';
+
+  const getX = (index: number) => padLeft + (index / Math.max(velocityData.length - 1, 1)) * plotW;
+  const getY = (val: number) => baselineY - (val / maxVelocity) * plotH;
+
+  const totalPoints = velocityData.map((item, index) => ({ ...item, x: getX(index), y: getY(item.total) }));
+  const approvedPoints = velocityData.map((item, index) => ({ x: getX(index), y: getY(item.approved) }));
+  const pendingPoints = velocityData.map((item, index) => ({ x: getX(index), y: getY(item.pending) }));
+
+  const totalCurve = getBezierPath(totalPoints);
+  const totalArea = getAreaPath(totalPoints, baselineY);
+  const approvedCurve = getBezierPath(approvedPoints);
+  const pendingCurve = getBezierPath(pendingPoints);
+
+  const gridLevels = Array.from(new Set([maxVelocity, Math.round(maxVelocity * 0.66), Math.round(maxVelocity * 0.33), 0])).sort((a, b) => b - a);
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] font-sans text-[#0b1c30]">
@@ -134,6 +204,20 @@ export function DashboardContent() {
       <ProfileSettingsModal />
       <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
       <Toast />
+
+      <style jsx>{`
+        @keyframes sweepIn {
+          from {
+            clip-path: inset(0 100% 0 0);
+          }
+          to {
+            clip-path: inset(0 0 0 0);
+          }
+        }
+        .velocity-sweep-active {
+          animation: sweepIn 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
 
       <main className="mx-auto flex w-full max-w-[78rem] flex-col gap-6 px-4 pb-24 pt-24 md:px-7">
         <section className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
@@ -146,6 +230,9 @@ export function DashboardContent() {
             <span className="mr-2 hidden text-xs text-[#777587] sm:inline">Reporting period · {new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             <button onClick={handleExportCSV} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#cbd5e1] bg-white px-3.5 text-xs font-semibold text-[#464555] shadow-sm transition hover:border-[#a5b4fc] hover:bg-[#eff4ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f46e5]/30"><Download size={16} />Export CSV</button>
             <button onClick={() => setIsSlideoverOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4f46e5] px-4 text-xs font-semibold text-white shadow-[0_5px_14px_rgba(79,70,229,0.22)] transition hover:bg-[#3525cd] hover:shadow-[0_7px_18px_rgba(79,70,229,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f46e5]/40"><Plus size={17} />New Request</button>
+            {currentUser?.role === 'admin' && (
+              <button onClick={() => setIsSlideoverOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4f46e5] px-4 text-xs font-semibold text-white shadow-[0_5px_14px_rgba(79,70,229,0.22)] transition hover:bg-[#3525cd] hover:shadow-[0_7px_18px_rgba(79,70,229,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f46e5]/40"><Plus size={17} />New Request</button>
+            )}
           </div>
         </section>
 
@@ -174,7 +261,119 @@ export function DashboardContent() {
           {isLoading && requests.length === 0 && <div className="h-64 animate-pulse bg-slate-50/70" />}
           {error && <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm text-rose-700"><CircleAlert size={22} /><span>{error}</span><button onClick={() => void reloadRequests()} className="inline-flex items-center gap-2 rounded-md border border-rose-200 bg-white px-3 py-2 text-xs font-semibold"><RefreshCw size={13} />Retry</button></div>}
           {!isLoading && !error && velocityData.length === 0 && <div className="flex h-64 flex-col items-center justify-center text-center"><TrendingUp size={24} className="mb-2 text-slate-300" /><p className="text-sm font-semibold">No velocity data yet</p><p className="mt-1 text-xs text-[#777587]">Activity will appear here as requests move through the workflow.</p></div>}
-          {velocityData.length > 0 && <div className="px-5 pb-4 pt-5"><div className="mb-3 flex items-center gap-5 text-xs text-[#777587]"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#4f46e5]" />Total requests</span><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" />Approved</span><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />Pending</span><span className="ml-auto hidden sm:inline">Average {averageVelocity} / week</span></div><div className="relative h-56 w-full"><div className="absolute inset-0 flex flex-col justify-between pb-7 pt-2">{Array.from(new Set([maxVelocity, Math.round(maxVelocity * .66), Math.round(maxVelocity * .33), 0])).sort((a, b) => b - a).map((value, index) => <div key={`${value}-${index}`} className="flex items-center gap-3"><span className="w-5 text-right font-mono text-[10px] text-[#94a3b8]">{value}</span><div className="h-px flex-1 border-t border-dashed border-[#e2e8f0]" /></div>)}</div><svg className="absolute bottom-7 left-8 right-0 h-[calc(100%-2rem)] w-[calc(100%-2rem)] overflow-visible" viewBox="0 0 800 100" preserveAspectRatio="none" role="img" aria-label="Weekly request velocity chart"><defs><linearGradient id="velocityFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#4f46e5" stopOpacity="0.22" /><stop offset="100%" stopColor="#4f46e5" stopOpacity="0.015" /></linearGradient></defs><polygon className="velocity-area" points={chartArea} fill="url(#velocityFill)" /><polyline className="velocity-line" points={chartLine} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{chartPoints.map((item, index) => <g key={item.week} onMouseEnter={() => setActiveWeek(index)} onFocus={() => setActiveWeek(index)} onMouseLeave={() => setActiveWeek(null)} tabIndex={0} role="button" aria-label={`${item.week}: ${item.total} requests, ${item.approved} approved, ${item.pending} pending`}><circle className="velocity-point" cx={item.x} cy={item.y} r={activeWeek === index ? 7 : 4.5} fill="white" stroke="#4f46e5" strokeWidth="2.5" /><circle cx={item.x} cy={item.y} r="12" fill="transparent" />{activeWeek === index && <g className="chart-tooltip"><rect x={Math.max(0, Math.min(item.x - 64, 672))} y={Math.max(2, item.y - 43)} width="128" height="34" rx="6" fill="#0b1c30" /><text x={Math.max(64, Math.min(item.x, 736))} y={Math.max(16, item.y - 24)} textAnchor="middle" fill="white" fontSize="10" fontWeight="600">{item.week} · {item.total} total</text><text x={Math.max(64, Math.min(item.x, 736))} y={Math.max(28, item.y - 12)} textAnchor="middle" fill="#cbd5e1" fontSize="9">{item.approved} approved · {item.pending} pending</text></g>}</g>)}</svg><div className="absolute bottom-0 left-8 right-0 flex justify-between text-[10px] text-[#777587]">{velocityData.map((item) => <span key={item.week}>{item.week}</span>)}</div></div></div>}
+          {velocityData.length > 0 && (
+            <div className="px-5 pb-5 pt-5">
+              <div className="mb-4 flex flex-wrap items-center gap-5 text-xs text-[#777587]">
+                <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#4f46e5]" /><strong className="font-medium text-[#0b1c30]">Total requests</strong> ({totalVelocity})</span>
+                <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" /><strong className="font-medium text-[#0b1c30]">Approved</strong> ({velocityData.reduce((s, i) => s + i.approved, 0)})</span>
+                <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" /><strong className="font-medium text-[#0b1c30]">Pending</strong> ({velocityData.reduce((s, i) => s + i.pending, 0)})</span>
+                <span className="ml-auto hidden sm:inline font-mono text-[11px]">Average {averageVelocity} / week</span>
+              </div>
+
+              <div className="relative w-full">
+                <svg className="h-44 w-full overflow-visible" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Weekly request velocity chart">
+                  <defs>
+                    <linearGradient id="velocityTotalGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.01" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Horizontal gridlines */}
+                  {gridLevels.map((lvl) => {
+                    const y = getY(lvl);
+                    return (
+                      <g key={lvl}>
+                        <text x={padLeft - 8} y={y + 3} textAnchor="end" className="fill-slate-400 font-mono text-[9px]">{lvl}</text>
+                        <line x1={padLeft} y1={y} x2={padLeft + plotW} y2={y} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
+                      </g>
+                    );
+                  })}
+
+                  {/* Animated curve sweep container (animates on initial mount only) */}
+                  <g className={isSweepActive ? 'velocity-sweep-active' : ''}>
+                    {/* Soft gradient area for total */}
+                    <path d={totalArea} fill="url(#velocityTotalGrad)" />
+                    {/* Total requests smooth curved line */}
+                    <path d={totalCurve} fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Approved requests distinct curved line */}
+                    <path d={approvedCurve} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Pending requests distinct curved line */}
+                    <path d={pendingCurve} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </g>
+
+                  {/* Hover columns & interactive points */}
+                  {totalPoints.map((item, index) => {
+                    const colWidth = plotW / Math.max(velocityData.length - 1, 1);
+                    const isHovered = activeWeek === index;
+                    return (
+                      <g
+                        key={item.week}
+                        onMouseEnter={() => setActiveWeek(index)}
+                        onFocus={() => setActiveWeek(index)}
+                        onMouseLeave={() => setActiveWeek(null)}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`${formatWeekLabel(item.week)}: ${item.total} total, ${item.approved} approved, ${item.pending} pending`}
+                      >
+                        <rect x={item.x - colWidth / 2} y={padTop} width={colWidth} height={plotH} fill="transparent" className="cursor-pointer" />
+                        {isHovered && (
+                          <>
+                            <line x1={item.x} y1={padTop} x2={item.x} y2={baselineY} stroke="#94a3b8" strokeDasharray="3 3" strokeWidth="1" />
+                            <circle cx={item.x} cy={item.y} r="5" fill="white" stroke="#4f46e5" strokeWidth="2.5" />
+                            <circle cx={item.x} cy={getY(item.approved)} r="4" fill="white" stroke="#10b981" strokeWidth="2" />
+                            <circle cx={item.x} cy={getY(item.pending)} r="4" fill="white" stroke="#f59e0b" strokeWidth="2" />
+                            <g className="chart-tooltip pointer-events-none">
+                              <rect
+                                x={Math.max(8, Math.min(item.x - 70, W - 148))}
+                                y={Math.max(4, Math.min(item.y - 54, baselineY - 60))}
+                                width="140"
+                                height="48"
+                                rx="6"
+                                fill="#0b1c30"
+                              />
+                              <text
+                                x={Math.max(78, Math.min(item.x, W - 78))}
+                                y={Math.max(4, Math.min(item.y - 54, baselineY - 60)) + 16}
+                                textAnchor="middle"
+                                fill="white"
+                                fontSize="11"
+                                fontWeight="600"
+                              >
+                                {formatWeekLabel(item.week)} · {item.total} {item.total === 1 ? 'request' : 'requests'}
+                              </text>
+                              <text
+                                x={Math.max(78, Math.min(item.x, W - 78))}
+                                y={Math.max(4, Math.min(item.y - 54, baselineY - 60)) + 34}
+                                textAnchor="middle"
+                                fontSize="10"
+                              >
+                                <tspan fill="#34d399">● {item.approved} approved</tspan>
+                                <tspan fill="#94a3b8">  ·  </tspan>
+                                <tspan fill="#fbbf24">● {item.pending} pending</tspan>
+                              </text>
+                            </g>
+                          </>
+                        )}
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* 8 Weeks Labels along X-Axis */}
+                <div className="flex justify-between px-7 pt-2 text-[10px] text-[#777587]">
+                  {velocityData.map((item, index) => (
+                    <span
+                      key={item.week}
+                      className={`font-medium transition-colors ${activeWeek === index ? 'font-bold text-[#4f46e5]' : ''}`}
+                    >
+                      {formatWeekLabel(item.week)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         <section id="table" className="overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_2px_8px_rgba(15,23,42,0.04)]">

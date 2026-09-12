@@ -17,7 +17,15 @@ export const supabasePublic: SupabaseClient = createClient(
   config.supabaseUrl,
   config.supabaseAnonKey,
   { auth: { autoRefreshToken: false, persistSession: false } },
+  { auth: { autoRefreshToken: false, persistSession: false } }
 );
+
+// Ephemeral client for authenticating user credentials without mutating supabaseAdmin
+export function createAuthClient(): SupabaseClient {
+  return createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 // Per-request client — uses the user's access token, respects RLS
 export function createUserClient(accessToken: string): SupabaseClient {

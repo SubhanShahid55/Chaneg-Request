@@ -41,7 +41,7 @@ type SortField = 'updated' | 'cost' | 'priority' | 'client' | 'title';
 type SortDirection = 'asc' | 'desc';
 
 function RequestsContent() {
-  const { requests, setIsSlideoverOpen, isLoading, error, reloadRequests, showToast } = useApp();
+  const { requests, setIsSlideoverOpen, isLoading, error, reloadRequests, showToast, currentUser } = useApp();
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -220,6 +220,19 @@ function RequestsContent() {
                 <span>New Request</span>
                 <kbd className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono font-medium">N</kbd>
               </button>
+              {currentUser?.role === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => setIsSlideoverOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#4f46e5] hover:bg-[#3525cd] text-white shadow-sm shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 text-xs font-semibold active:scale-95 group"
+                >
+                  <span className="material-symbols-outlined text-lg group-hover:rotate-90 transition-transform duration-300">
+                    add
+                  </span>
+                  <span>New Request</span>
+                  <kbd className="ml-1 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono font-medium">N</kbd>
+                </button>
+              )}
             </div>
           </div>
 
