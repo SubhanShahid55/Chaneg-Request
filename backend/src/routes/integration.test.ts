@@ -29,13 +29,11 @@ describe('HTTP API Security & Route Integration Tests', () => {
 
     // Acquire session for standard user
     const linkStd = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: 'subhanshahid.dev@gmail.com' });
-    const verifyStd = await authClient.auth.verifyOtp({ token_hash: linkStd.data.properties.hashed_token, type: 'email' });
     const verifyStd = await authClient.auth.verifyOtp({ token_hash: linkStd.data?.properties?.hashed_token || '', type: 'email' });
     stdToken = verifyStd.data.session?.access_token || '';
 
     // Acquire session for admin user
     const linkAdmin = await supabaseAdmin.auth.admin.generateLink({ type: 'magiclink', email: 'admin@imant.com' });
-    const verifyAdmin = await authClient.auth.verifyOtp({ token_hash: linkAdmin.data.properties.hashed_token, type: 'email' });
     const verifyAdmin = await authClient.auth.verifyOtp({ token_hash: linkAdmin.data?.properties?.hashed_token || '', type: 'email' });
     adminToken = verifyAdmin.data.session?.access_token || '';
   });

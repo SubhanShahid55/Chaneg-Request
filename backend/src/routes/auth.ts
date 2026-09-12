@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { supabaseAdmin, supabasePublic, presentProfile } from '../supabase.js';
 import { supabaseAdmin, supabasePublic, createAuthClient, presentProfile } from '../supabase.js';
 import { config } from '../config.js';
 
@@ -97,7 +96,6 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
   const authClient = createAuthClient();
   const { data, error } = await authClient.auth.signInWithPassword({ email, password });
   if (error || !data.user || !data.session) {

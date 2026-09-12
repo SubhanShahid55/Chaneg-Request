@@ -16,7 +16,6 @@ export const supabaseAdmin: SupabaseClient = createClient(
 export const supabasePublic: SupabaseClient = createClient(
   config.supabaseUrl,
   config.supabaseAnonKey,
-  { auth: { autoRefreshToken: false, persistSession: false } },
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
