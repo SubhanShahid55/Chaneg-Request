@@ -16,8 +16,8 @@ jobs:
     env:
       NODE_ENV: test
       SUPABASE_URL: https://oaizzfiwjqjruyusabnn.supabase.co
-      SUPABASE_PUBLISHABLE_KEY: sb_publishable_test
-      SUPABASE_SECRET_KEY: sb_secret_test
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_test' }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY || 'sb_secret_test' }}
       PORT: 4000
     steps:
       - name: Check out repository
@@ -48,7 +48,7 @@ jobs:
     env:
       NEXT_PUBLIC_API_URL: http://localhost:4000
       NEXT_PUBLIC_SUPABASE_URL: https://oaizzfiwjqjruyusabnn.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_test
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_test' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

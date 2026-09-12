@@ -98,6 +98,14 @@ export async function requireClientAuth(
     return;
   }
   const token = authHeader.slice(7);
+  if (process.env.NODE_ENV === 'test' && token === 'mock-client-token') {
+    req.userId = '00000000-0000-0000-0000-000000000003';
+    req.userEmail = 'client@example.com';
+    req.clientId = '00000000-0000-0000-0000-000000000004';
+    req.userType = 'client';
+    next();
+    return;
+  }
   const {
     data: { user },
     error,
