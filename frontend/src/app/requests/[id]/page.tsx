@@ -464,7 +464,53 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
                     &quot;{req.rawQuote}&quot;
                   </div>
                 )}
+                
+                {req.attachments && req.attachments.length > 0 && (
+                  <div className="mt-5 border-t border-[#e2e8f0] pt-4">
+                    <h3 className="text-xs font-semibold text-[#0b1c30] mb-2">Attachments</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {req.attachments.map(a => (
+                        <a
+                          key={a.id}
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[#e2e8f0] bg-white hover:bg-[#f8f9ff] hover:border-[#cbd5e1] transition-colors text-xs text-[#464555] font-medium"
+                        >
+                          <span className="material-symbols-outlined text-[16px] text-[#777587]">attach_file</span>
+                          {a.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {req.projectDetails && (
+                <div className="bg-white rounded-xl border border-[#e2e8f0] p-5 shadow-sm">
+                  <h3 className="text-xs font-bold text-[#0b1c30] mb-4 uppercase tracking-wider">Project Impact</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                      <p className="text-xs text-slate-500 font-medium mb-1">Original Project</p>
+                      <p className="text-lg font-bold text-[#0b1c30]">
+                        {req.projectDetails.agreed_budget != null ? `$${req.projectDetails.agreed_budget.toLocaleString()}` : 'No budget'}
+                      </p>
+                      <p className="text-xs text-[#777587] mt-0.5">
+                        {req.projectDetails.timeline_days ? `${req.projectDetails.timeline_days} days` : 'No timeline'}
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-[#eff4ff] border border-[#dce9ff]">
+                      <p className="text-xs text-[#3525cd] font-medium mb-1">With This Change</p>
+                      <p className="text-lg font-bold text-[#0b1c30]">
+                        {req.projectDetails.agreed_budget != null ? `$${(req.projectDetails.agreed_budget + totalCost).toLocaleString()}` : `+$${totalCost.toLocaleString()}`}
+                      </p>
+                      <p className="text-xs text-[#3525cd] mt-0.5">
+                        {req.projectDetails.timeline_days ? `${req.projectDetails.timeline_days + timelineDays} days` : `+${timelineDays} days`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white rounded-xl border border-[#e2e8f0] shadow-sm overflow-hidden">
                 <div className="p-4 sm:p-5 bg-[#fafbff] border-b border-[#e2e8f0] flex items-center justify-between">

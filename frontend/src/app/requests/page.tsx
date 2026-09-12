@@ -338,6 +338,7 @@ function RequestsContent() {
                   {isLoading && requests.length === 0 ? (
                     // Loading skeleton rows
                     Array.from({ length: 5 }).map((_, idx) => (
+                    Array.from({ length: 1 }).map((_, idx) => (
                       <tr key={idx} className="animate-pulse">
                         <td className="py-4 px-4">
                           <div className="h-4 bg-slate-200 rounded w-20 mb-2" />
@@ -488,6 +489,7 @@ function RequestsContent() {
       <footer className="w-full bg-white border-t border-[#e2e8f0] mt-auto py-6">
         <div className="max-w-[75rem] mx-auto px-4 md:px-6 flex items-center justify-between text-xs text-[#777587]">
           <span>© 2025 ChangeFlow · Professional Client Scope Management</span>
+          <span>© {new Date().getFullYear()} ChangeFlow · Professional Client Scope Management</span>
           <span>
             Showing {filteredAndSortedRequests.length} of {requests.length} requests
           </span>

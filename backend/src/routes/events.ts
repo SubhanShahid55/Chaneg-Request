@@ -8,11 +8,22 @@ router.get('/recent', async (req: Request, res: Response): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from('activity_events')
     .select('*')
+    .select('*, change_requests(reference_code, title)')
     .gt('created_at', since)
     .order('created_at', { ascending: false })
     .limit(50);
   if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ events: data ?? [] });
+  
+  const mapped = (data ?? []).map((e: any) => ({
+    ...e,
+    event_data: {
+      ...(e.event_data || {}),
+      reference_code: e.change_requests?.reference_code,
+      request_title: e.change_requests?.title
+    }
+  }));
+  res.json({ events: mapped });
 });
 
 router.get('/stream', async (req: Request, res: Response): Promise<void> => {
@@ -29,6 +40,7 @@ router.get('/stream', async (req: Request, res: Response): Promise<void> => {
     const { data, error } = await supabaseAdmin
       .from('activity_events')
       .select('*')
+      .select('*, change_requests(reference_code, title)')
       .gt('created_at', lastSeen)
       .order('created_at', { ascending: true })
       .limit(50);
@@ -36,6 +48,15 @@ router.get('/stream', async (req: Request, res: Response): Promise<void> => {
     for (const event of data ?? []) {
       lastSeen = event.created_at;
       send({ type: 'activity', event });
+      const mappedEvent = {
+        ...event,
+        event_data: {
+          ...(event.event_data || {}),
+          reference_code: event.change_requests?.reference_code,
+          request_title: event.change_requests?.title
+        }
+      };
+      send({ type: 'activity', event: mappedEvent });
     }
     res.write(': heartbeat\n\n');
   }, 2000);

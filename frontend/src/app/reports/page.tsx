@@ -98,6 +98,7 @@ function ReportsContent() {
               <tbody className="divide-y divide-[#e2e8f0]">
                 {isLoading && requests.length === 0 ? (
                   Array.from({ length: 4 }).map((_, idx) => (
+                  Array.from({ length: 1 }).map((_, idx) => (
                     <tr key={idx} className="animate-pulse">
                       <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-36" /></td>
                       <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-24" /></td>

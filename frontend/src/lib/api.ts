@@ -21,7 +21,7 @@ export interface AuthProfile {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'standard';
+  role: 'admin' | 'standard' | 'client';
   is_active: boolean;
   avatar_url: string | null;
   job_title?: string | null;
@@ -57,6 +57,7 @@ export async function validateSession(token: string) {
   const result = await response.json() as { profile: AuthProfile };
   localStorage.setItem('changeflow_profile', JSON.stringify(result.profile));
   return result.profile;
+
 }
 
 export async function setInvitationPassword(password: string, name?: string, job_title?: string) {
@@ -206,6 +207,7 @@ function mapRequest(row: any): ChangeRequest {
     client: client.company_name || '',
     clientLogo: client.avatar_url || undefined,
     project: project.name || '',
+    projectDetails: project.id ? { ...project } : undefined,
     title: row.title || '',
     description: row.client_quote || '',
     rawQuote: row.client_quote || '',
@@ -213,9 +215,6 @@ function mapRequest(row: any): ChangeRequest {
     channelSource: row.source_channel || '',
     urgency: row.priority === 'critical' ? 'Critical' : row.priority === 'priority' ? 'High' : 'Medium',
     status: row.status,
-    estimatedHours: Number(row.hours || 0),
-    hourlyRate: Number(row.hourly_rate || 0),
-    estimatedCost: Number(row.cost || 0),
     estimatedHours: totalHours,
     hourlyRate: hourlyRate,
     estimatedCost: totalCost,
@@ -234,14 +233,6 @@ function mapRequest(row: any): ChangeRequest {
       role: row.profiles?.role || '',
       avatarUrl: row.profiles?.avatar_url || '',
     },
-    deliverables: (row.deliverables || []).map((item: any) => ({
-      id: item.id,
-      title: item.description,
-      description: item.description,
-      hours: Number(item.hours || 0),
-      category: item.category,
-      complexity: item.complexity || 'standard',
-    })),
     deliverables,
     exclusions: (row.exclusions || []).map((item: any) => item.description),
     approvalToken: row.approval_link?.token || '',
@@ -259,6 +250,11 @@ function mapRequest(row: any): ChangeRequest {
       event_data: e.event_data,
       actor_name: e.actor_name,
       created_at: e.created_at,
+    })),
+    attachments: (row.request_attachments || []).map((a: any) => ({
+      id: a.id,
+      name: a.file_name,
+      url: a.signed_url || a.file_path,
     })),
   };
 }
@@ -391,6 +387,32 @@ export async function fetchActivity(since?: string) {
 
 export async function fetchWeeklyVelocity() {
   return apiFetch<{ weeks: Array<{ week: string; approved: number; pending: number }> }>('/stats/weekly-velocity');
+}
+
+// ─── Portal API ──────────────────────────────────────────────────────────
+
+export async function fetchPortalProject() {
+  return apiFetch<{ project: Project; rollup: any }>('/portal/project');
+}
+
+export async function fetchPortalRequests() {
+  return apiFetch<{ requests: any[] }>('/portal/requests');
+}
+
+export async function fetchPortalRequest(id: string) {
+  return apiFetch<{ request: any }>(`/portal/requests/${encodeURIComponent(id)}`);
+}
+
+export async function submitPortalRequest(data: { title: string; client_quote?: string; attachment?: { dataUrl: string; name: string } }) {
+  return apiFetch<{ request: any }>('/portal/requests', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function approvePortalRequest(id: string) {
+  return apiFetch<{ success: true; confirmation_code: string }>(`/portal/requests/${encodeURIComponent(id)}/approve`, { method: 'POST', body: '{}' });
+}
+
+export async function declinePortalRequest(id: string, reason?: string) {
+  return apiFetch<{ success: true }>(`/portal/requests/${encodeURIComponent(id)}/decline`, { method: 'POST', body: JSON.stringify({ reason }) });
 }
 
 export { mapRequest };

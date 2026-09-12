@@ -99,6 +99,20 @@ router.post('/login', async (req, res) => {
         res.status(401).json({ error: 'The email or password is incorrect.' });
         return;
     }
+    const { data: clientUser } = await supabaseAdmin
+        .from('client_users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+    if (clientUser) {
+        if (!clientUser.is_active) {
+            res.status(403).json({ error: 'Your account is inactive. Contact support.' });
+            return;
+        }
+        const profile = await presentProfile(clientUser);
+        res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token, profile: { ...profile, role: 'client' } });
+        return;
+    }
     const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('*')
@@ -127,6 +141,20 @@ router.post('/session', async (req, res) => {
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
         res.status(401).json({ error: 'Invalid or expired session' });
+        return;
+    }
+    const { data: clientUser } = await supabaseAdmin
+        .from('client_users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+    if (clientUser) {
+        if (!clientUser.is_active) {
+            res.status(403).json({ error: 'Your account is inactive. Contact support.' });
+            return;
+        }
+        const profile = await presentProfile(clientUser);
+        res.json({ profile: { ...profile, role: 'client' } });
         return;
     }
     // Fetch or create the profile row

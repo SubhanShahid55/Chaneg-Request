@@ -265,4 +265,66 @@ router.delete('/users/:id/avatar', async (req: Request, res: Response): Promise<
   res.json({ user: await presentProfile(data) });
 });
 
+router.post('/clients/:clientId/invite', async (req: Request, res: Response): Promise<void> => {
+  const clientId = req.params.clientId;
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+
+  if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) {
+    res.status(400).json({ error: 'Enter a full name and a valid email address.' });
+    return;
+  }
+
+  const { data: client, error: clientError } = await supabaseAdmin.from('clients').select('id, company_name').eq('id', clientId).single();
+  if (clientError || !client) {
+    res.status(404).json({ error: 'Client not found.' });
+    return;
+  }
+
+  const origin = req.headers.origin || (typeof req.headers.referer === 'string' ? new URL(req.headers.referer).origin : null);
+  const appBaseUrl = origin && (config.corsOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1'))
+    ? origin
+    : config.appUrl;
+
+  let invitation;
+  try {
+    invitation = await supabaseAdmin.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: { data: { name, is_client: true }, redirectTo: `${appBaseUrl}/portal/login` },
+    });
+  } catch (cause) {
+    console.error('Client invitation provider error:', cause);
+    res.status(502).json({ error: 'The invitation service is unavailable.' });
+    return;
+  }
+
+  if (invitation.error || !invitation.data?.user) {
+    res.status(400).json({ error: invitation.error?.message || 'Unable to invite client.' });
+    return;
+  }
+
+  const created = invitation.data;
+  const { data: clientUser, error: insertError } = await supabaseAdmin.from('client_users').upsert({
+    id: created.user.id,
+    client_id: clientId,
+    email,
+    name,
+    is_active: true,
+  }).select().single();
+
+  if (insertError) {
+    await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+    res.status(500).json({ error: 'Could not create client user record.' });
+    return;
+  }
+
+  const invitationLink = (created as any)?.properties?.action_link;
+
+  res.status(201).json({
+    user: clientUser,
+    invitation_link: invitationLink,
+  });
+});
+
 export default router;

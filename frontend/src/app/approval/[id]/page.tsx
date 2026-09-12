@@ -175,6 +175,7 @@ function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) 
           </p>
           <a
             href="mailto:sarah@momentumstudio.io?subject=Expired%20Approval%20Link"
+            href="mailto:info@imant.com?subject=Expired%20Approval%20Link"
             className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4f46e5] text-white text-xs font-semibold hover:bg-[#3525cd] transition-colors shadow-xs"
           >
             <span className="material-symbols-outlined text-sm">mail</span>
@@ -333,10 +334,12 @@ function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) 
               <div className="text-xs">
                 <span className="font-bold text-[#0b1c30] block">Sarah Mitchell</span>
                 <span className="text-[#777587]">Senior Delivery Lead · Momentum Studio</span>
+                <span className="text-[#777587]">Senior Delivery Lead · IMANT</span>
               </div>
             </div>
             <a
               href={`mailto:sarah@momentumstudio.io?subject=Question%20about%20${req?.reference_code}`}
+              href={`mailto:info@imant.com?subject=Question%20about%20${req?.reference_code}`}
               className="px-3.5 py-2 rounded-xl bg-[#eff4ff] text-[#3525cd] text-xs font-semibold hover:bg-[#dce9ff] transition-colors flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-sm">mail</span>

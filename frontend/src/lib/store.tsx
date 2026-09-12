@@ -251,6 +251,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await createRequest({
         client_id: data.databaseId,
+        project_id: data.project,
         title: data.title,
         client_quote: data.rawQuote,
         source_channel: data.channel === 'Portal' ? undefined : data.channel,

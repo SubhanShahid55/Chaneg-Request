@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { config } from './config.js';
-import { requireAuth, requireAdmin } from './middleware/auth.js';
 import { approvalRateLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
 import clientRoutes from './routes/clients.js';
@@ -12,6 +11,8 @@ import approvalRoutes from './routes/approval.js';
 import eventsRoutes from './routes/events.js';
 import adminRoutes from './routes/admin.js';
 import projectRoutes from './routes/projects.js';
+import portalRoutes from './routes/portal.js';
+import { requireAuth, requireAdmin, requireClientAuth } from './middleware/auth.js';
 const app = express();
 const allowedOrigins = new Set([
     config.appUrl.replace(/\/$/, ''),
@@ -57,6 +58,7 @@ app.use('/projects', requireAuth, projectRoutes);
 app.use('/requests', requireAuth, requestRoutes);
 app.use('/stats', requireAuth, statsRoutes);
 app.use('/events', requireAuth, eventsRoutes);
+app.use('/portal', requireClientAuth, portalRoutes);
 // ─── Global error handler ───────────────────────────────────
 app.use((err, _req, res, _next) => {
     console.error('Unhandled error:', err);

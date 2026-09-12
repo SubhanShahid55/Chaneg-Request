@@ -181,6 +181,8 @@ declare global {
       userId?: string;
       userEmail?: string;
       userRole?: 'admin' | 'standard';
+      clientId?: string;
+      userType?: 'internal' | 'client';
     }
   }
 }

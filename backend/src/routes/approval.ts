@@ -168,8 +168,6 @@ router.get('/:token', async (req: Request, res: Response): Promise<void> => {
       title: request.title,
       client_quote: request.client_quote,
       priority: request.priority,
-      cost: request.cost,
-      hours: request.hours,
       cost: (deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours), 0) * Number(request.hourly_rate || 0),
       hours: (deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours), 0),
       hourly_rate: request.hourly_rate,

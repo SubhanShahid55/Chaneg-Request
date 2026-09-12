@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { fetchProject } from '@/lib/api';
 import type { Project } from '@/lib/types';
+import { AppProvider } from '@/lib/store';
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -18,6 +19,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }, [id]);
 
   return (
+    <AppProvider>
     <div className="min-h-screen bg-[#f8f9ff]">
       <Header />
       <main className="mx-auto max-w-[75rem] px-4 pb-16 pt-24 md:px-6">
@@ -75,6 +77,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         )}
       </main>
     </div>
+    </AppProvider>
   );
 }
 

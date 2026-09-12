@@ -103,6 +103,22 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  const { data: clientUser } = await supabaseAdmin
+    .from('client_users')
+    .select('*')
+    .eq('id', data.user.id)
+    .single();
+
+  if (clientUser) {
+    if (!clientUser.is_active) {
+      res.status(403).json({ error: 'Your account is inactive. Contact support.' });
+      return;
+    }
+    const profile = await presentProfile(clientUser);
+    res.json({ access_token: data.session.access_token, refresh_token: data.session.refresh_token, profile: { ...profile, role: 'client' } });
+    return;
+  }
+
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('*')
@@ -135,6 +151,22 @@ router.post('/session', async (req: Request, res: Response): Promise<void> => {
 
   if (authError || !user) {
     res.status(401).json({ error: 'Invalid or expired session' });
+    return;
+  }
+
+  const { data: clientUser } = await supabaseAdmin
+    .from('client_users')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (clientUser) {
+    if (!clientUser.is_active) {
+      res.status(403).json({ error: 'Your account is inactive. Contact support.' });
+      return;
+    }
+    const profile = await presentProfile(clientUser);
+    res.json({ profile: { ...profile, role: 'client' } });
     return;
   }
 

@@ -59,3 +59,51 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   }
   next();
 }
+
+/**
+ * Validates Supabase JWT against the client_users table.
+ */
+export async function requireClientAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Missing or malformed Authorization header' });
+    return;
+  }
+  const token = authHeader.slice(7);
+  const {
+    data: { user },
+    error,
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (error || !user) {
+    res.status(401).json({ error: error?.message || 'Invalid or expired session' });
+    return;
+  }
+
+  req.userId = user.id;
+  req.userEmail = user.email;
+
+  const { data: clientUser, error: clientUserError } = await supabaseAdmin
+    .from('client_users')
+    .select('client_id, is_active')
+    .eq('id', user.id)
+    .single();
+
+  if (clientUserError || !clientUser) {
+    res.status(403).json({ error: 'Your client account is not available.' });
+    return;
+  }
+  if (!clientUser.is_active) {
+    res.status(403).json({ error: 'Your account is inactive. Contact support.' });
+    return;
+  }
+
+  req.clientId = clientUser.client_id;
+  req.userType = 'client';
+  next();
+}

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabaseAdmin } from '../supabase.js';
 import { validateTransition, TransitionError } from '../services/stateMachine.js';
 import { sendApprovalEmail } from '../services/email.js';
+import { getAttachmentSignedUrl } from '../services/attachments.js';
 import { generateApprovalToken } from '../utils/tokens.js';
 import { buildCsv } from '../utils/csv.js';
 import { config } from '../config.js';
@@ -53,7 +54,7 @@ router.get('/export', async (req, res) => {
     const q = req.query.q;
     let query = supabaseAdmin
         .from('change_requests')
-        .select('reference_code, title, status, priority, hours, cost, source_channel, created_at, clients(company_name, contact_name)');
+        .select('reference_code, title, status, priority, hourly_rate, source_channel, created_at, clients(company_name, contact_name), deliverables(hours)');
     if (status === 'needs_review') {
         query = query.in('status', ['draft', 'pending', 'reviewing']);
     }
@@ -68,18 +69,22 @@ router.get('/export', async (req, res) => {
         res.status(500).json({ error: error.message });
         return;
     }
-    const rows = (data ?? []).map((r) => ({
-        reference_code: r.reference_code,
-        title: r.title,
-        company_name: r.clients?.company_name ?? '',
-        contact_name: r.clients?.contact_name ?? '',
-        status: r.status,
-        priority: r.priority,
-        hours: r.hours,
-        cost: r.cost,
-        source_channel: r.source_channel,
-        created_at: r.created_at,
-    }));
+    const rows = (data ?? []).map((r) => {
+        const hours = (r.deliverables || []).reduce((acc, d) => acc + Number(d.hours || 0), 0);
+        const cost = hours * (Number(r.hourly_rate) || 0);
+        return {
+            reference_code: r.reference_code,
+            title: r.title,
+            company_name: r.clients?.company_name ?? '',
+            contact_name: r.clients?.contact_name ?? '',
+            status: r.status,
+            priority: r.priority,
+            hours,
+            cost,
+            source_channel: r.source_channel,
+            created_at: r.created_at,
+        };
+    });
     const columns = [
         'reference_code',
         'title',
@@ -114,7 +119,7 @@ router.get('/', async (req, res) => {
     }
     let query = supabaseAdmin
         .from('change_requests')
-        .select('*, clients(company_name, contact_name, contact_email)', { count: 'exact' });
+        .select('*, clients(company_name, contact_name, contact_email), deliverables(hours)', { count: 'exact' });
     if (status === 'needs_review') {
         query = query.in('status', ['draft', 'pending', 'reviewing']);
     }
@@ -150,7 +155,7 @@ router.get('/:id', async (req, res) => {
         return;
     }
     // Parallel fetches using the authoritative UUID (request.id)
-    const [deliverables, exclusions, notes, approvalLink, approvalResponse, client, project, activityEvents] = await Promise.all([
+    const [deliverables, exclusions, notes, approvalLink, approvalResponse, client, project, activityEvents, attachments] = await Promise.all([
         supabaseAdmin.from('deliverables').select('*').eq('request_id', request.id),
         supabaseAdmin.from('exclusions').select('*').eq('request_id', request.id),
         supabaseAdmin
@@ -179,7 +184,16 @@ router.get('/:id', async (req, res) => {
             .select('*')
             .eq('request_id', request.id)
             .order('created_at', { ascending: true }),
+        supabaseAdmin
+            .from('request_attachments')
+            .select('*')
+            .eq('request_id', request.id)
+            .order('created_at', { ascending: true }),
     ]);
+    const attachmentsData = await Promise.all((attachments.data || []).map(async (attachment) => {
+        const signedUrl = await getAttachmentSignedUrl(attachment.file_path);
+        return { ...attachment, signed_url: signedUrl };
+    }));
     res.json({
         ...request,
         client: client.data,
@@ -190,6 +204,7 @@ router.get('/:id', async (req, res) => {
         approval_link: approvalLink.data,
         approval_response: approvalResponse.data,
         activity_events: activityEvents.data ?? [],
+        request_attachments: attachmentsData,
     });
 });
 // ---------------------------------------------------------------------------
@@ -344,7 +359,7 @@ router.patch('/:id/estimate', async (req, res) => {
     }
     const { data: updated, error: updateError } = await supabaseAdmin
         .from('change_requests')
-        .update({ hourly_rate: body.hourly_rate, hours: estimate.hours, cost: estimate.cost, target_delivery_date: body.target_delivery_date, timeline_days: body.timeline_days, updated_at: now })
+        .update({ hourly_rate: body.hourly_rate, target_delivery_date: body.target_delivery_date, timeline_days: body.timeline_days, updated_at: now })
         .eq('id', targetId)
         .select()
         .single();

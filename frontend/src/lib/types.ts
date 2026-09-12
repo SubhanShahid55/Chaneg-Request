@@ -30,6 +30,7 @@ export interface Project {
   scope_summary: string | null;
   agreed_budget: number | null;
   timeline_days: number | null;
+  status: 'Active' | 'On Hold' | 'Completed';
   clients?: { company_name: string };
   original_deliverables?: ProjectDeliverable[];
   approved_change_requests?: ChangeRequest[];
@@ -55,6 +56,7 @@ export interface ChangeRequest {
   client: string;
   clientLogo?: string;
   project: string;
+  projectDetails?: Project;
   title: string;
   description: string;
   rawQuote: string;
@@ -83,6 +85,7 @@ export interface ChangeRequest {
   };
   notes?: Array<{ id: string; content: string; created_at: string; author_name?: string }>;
   activityEvents?: ActivityEvent[];
+  attachments?: Array<{ id: string; name: string; url: string }>;
 }
 
 export interface ActivityEvent {
