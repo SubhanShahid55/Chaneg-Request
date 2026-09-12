@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@supabase/server": "^1.5.3",
@@ -18,13 +19,15 @@
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.1.0",
-    "resend": "^4.5.0",
-    "redis": "^5.8.2"
+    "pg": "^8.23.0",
+    "redis": "^5.8.2",
+    "resend": "^4.5.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",
     "@types/node": "^22.15.0",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"
   }

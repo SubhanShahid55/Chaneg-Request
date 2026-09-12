@@ -171,7 +171,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     void load();
     const refresh = window.setInterval(() => void load(), 5000);
-    const events = new EventSource(`${API_BASE_URL}/events/stream`);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('changeflow_access_token') : '';
+    const streamUrl = token
+      ? `${API_BASE_URL}/events/stream?token=${encodeURIComponent(token)}`
+      : `${API_BASE_URL}/events/stream`;
+    const events = new EventSource(streamUrl);
     events.onmessage = () => void load();
     events.onerror = () => events.close();
     return () => { active = false; window.clearInterval(refresh); events.close(); };

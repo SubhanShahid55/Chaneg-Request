@@ -10,13 +10,19 @@ export async function requireAuth(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  let token: string | undefined;
   const authHeader = req.headers.authorization;
 
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else if (typeof req.query.token === 'string' && (req.path === '/stream' || req.path === '/events/stream' || req.baseUrl === '/events')) {
+    token = req.query.token;
+  }
+
+  if (!token) {
     res.status(401).json({ error: 'Missing or malformed Authorization header' });
     return;
   }
-  const token = authHeader.slice(7);
   const {
     data: { user },
     error,

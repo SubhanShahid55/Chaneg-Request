@@ -11,14 +11,33 @@ import { RequestStatus, ScopeDeliverable, ActivityEvent } from '@/lib/types';
 import { StatusStepper } from '@/components/StatusStepper';
 import { NextActionBadge } from '@/components/NextActionBadge';
 import { ActivityTimeline } from '@/components/ActivityTimeline';
-import { addRequestNote, approveReview, fetchRequestActivity, requestReviewChanges } from '@/lib/api';
+import { addRequestNote, approveReview, fetchRequest, fetchRequestActivity, requestReviewChanges } from '@/lib/api';
 
 function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
   const { getRequestById, updateRequest, updateStatus, saveEstimate, showToast, currentUser, isLoading, reloadRequests } = useApp();
 
-  const req = getRequestById(id);
+  const storeReq = getRequestById(id);
+  const [fallbackReq, setFallbackReq] = useState<any>(null);
+  const [isFetchingFallback, setIsFetchingFallback] = useState(false);
+  const req = storeReq || fallbackReq;
+
+  useEffect(() => {
+    if (!storeReq && id) {
+      setIsFetchingFallback(true);
+      fetchRequest(id)
+        .then((loaded) => {
+          setFallbackReq(loaded);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch request fallback:', err);
+        })
+        .finally(() => {
+          setIsFetchingFallback(false);
+        });
+    }
+  }, [id, storeReq]);
 
   const [hourlyRate, setHourlyRate] = useState<number>(req?.hourlyRate || 150);
   const [deliverables, setDeliverables] = useState<ScopeDeliverable[]>(req?.deliverables || []);
@@ -26,7 +45,7 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const [timelineDays, setTimelineDays] = useState(req?.targetTurnaroundDays || 5);
   const [exclusions, setExclusions] = useState<string[]>(req?.exclusions || []);
   const [newNote, setNewNote] = useState('');
-  const [notes, setNotes] = useState(req?.notes || []);
+  const [notes, setNotes] = useState<Array<{ id: string; content: string; created_at: string; author_name?: string }>>(req?.notes || []);
   const [activity, setActivity] = useState<ActivityEvent[]>(req?.activityEvents || []);
   const [isSavingEstimate, setIsSavingEstimate] = useState(false);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
@@ -64,7 +83,7 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
     }
   }, [req?.id, req?.databaseId]);
 
-  if (isLoading && !req) {
+  if ((isLoading || isFetchingFallback) && !req) {
     return (
       <div className="min-h-screen bg-[#f8f9ff] flex flex-col">
         <Header />
@@ -469,7 +488,7 @@ function RequestDetailContent({ params }: { params: Promise<{ id: string }> }) {
                   <div className="mt-5 border-t border-[#e2e8f0] pt-4">
                     <h3 className="text-xs font-semibold text-[#0b1c30] mb-2">Attachments</h3>
                     <div className="flex flex-wrap gap-2">
-                      {req.attachments.map(a => (
+                      {req.attachments.map((a: any) => (
                         <a
                           key={a.id}
                           href={a.url}

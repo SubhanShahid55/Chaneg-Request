@@ -45,7 +45,7 @@ router.post('/users', async (req: Request, res: Response): Promise<void> => {
     ? origin
     : config.appUrl;
 
-  const invitationData = { name, role, job_title: jobTitle };
+  const invitationData = { name, role, job_title: jobTitle, is_internal: true };
   const useBrandedEmail = Boolean(config.resendApiKey && config.resendApiKey !== 're_your_placeholder_key');
   let invitation;
   let emailSent = false;

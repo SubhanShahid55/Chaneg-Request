@@ -98,8 +98,9 @@ export default function PortalRequestDetailPage() {
 
   const statusInfo = getStatusInfo(request.status);
   const isAwaiting = request.status === 'awaiting_approval';
-  const hasProposal = request.hours !== null && request.hours !== undefined && request.timeline_days !== null;
-  const estimatedCost = (request.hours || 0) * (request.hourly_rate || 0);
+  const computedHours = (request.deliverables || []).reduce((acc: number, d: any) => acc + (Number(d?.hours) || 0), 0);
+  const hasProposal = (computedHours > 0 || (request.deliverables && request.deliverables.length > 0)) && request.timeline_days !== null;
+  const estimatedCost = computedHours * (Number(request.hourly_rate) || 0);
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">

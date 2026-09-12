@@ -171,6 +171,11 @@ export interface ApprovalTokenResult {
   deliverables?: Deliverable[];
   exclusions?: Exclusion[];
   response?: ApprovalResponse;
+  project_lead?: {
+    name?: string;
+    email?: string;
+    title?: string;
+  } | null;
 }
 
 // ─── Express augmentation ───────────────────────────────────────────

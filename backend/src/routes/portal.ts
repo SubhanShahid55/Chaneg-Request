@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabaseAdmin, presentProfile } from '../supabase.js';
 import { calculateProjectRollup } from '../services/projectRollup.js';
 import { uploadAttachment, getAttachmentSignedUrl } from '../services/attachments.js';
+import { calculateEstimate } from '../services/estimate.js';
 
 const router = Router();
 
@@ -46,6 +47,7 @@ router.get('/requests', async (req: Request, res: Response): Promise<void> => {
   const { data, error } = await supabaseAdmin
     .from('change_requests')
     .select('id, reference_code, title, status, hours, hourly_rate, timeline_days, created_at, updated_at')
+    .select('id, reference_code, title, status, hourly_rate, timeline_days, created_at, updated_at, deliverables(hours)')
     .eq('client_id', req.clientId)
     .order('created_at', { ascending: false });
 
@@ -54,6 +56,17 @@ router.get('/requests', async (req: Request, res: Response): Promise<void> => {
     return;
   }
   res.json({ requests: data || [] });
+
+  const requests = (data || []).map((reqItem: any) => {
+    const { hours, cost } = calculateEstimate(reqItem.deliverables || [], reqItem.hourly_rate);
+    return {
+      ...reqItem,
+      hours,
+      cost,
+    };
+  });
+
+  res.json({ requests });
 });
 
 router.get('/requests/:id', async (req: Request, res: Response): Promise<void> => {
@@ -98,8 +111,12 @@ router.post('/requests', async (req: Request, res: Response): Promise<void> => {
   const { data: clientUser } = await supabaseAdmin.from('client_users').select('name').eq('id', req.userId).single();
 
   // Reference code helper
-  const { data: nextCode } = await supabaseAdmin.rpc('next_change_request_code');
-  const code = nextCode || Math.floor(Math.random() * 10000);
+  const { data: nextCode, error: codeError } = await supabaseAdmin.rpc('next_change_request_code');
+  if (codeError || !nextCode) {
+    res.status(500).json({ error: 'Failed to generate reference code.' });
+    return;
+  }
+  const code = nextCode;
 
   // Default project
   const { data: project } = await supabaseAdmin.from('projects').select('id').eq('client_id', req.clientId).single();

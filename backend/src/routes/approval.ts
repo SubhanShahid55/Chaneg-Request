@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../supabase.js';
 import { validateTransition, TransitionError } from '../services/stateMachine.js';
 import { sendTeamNotification } from '../services/email.js';
+import { calculateEstimate } from '../services/estimate.js';
 import { generateConfirmationCode } from '../utils/codes.js';
 import type { RequestStatus, ApprovalTokenResult } from '../types.js';
 
@@ -16,31 +17,13 @@ async function resolveToken(token: string): Promise<{
   request?: any;
   client?: any;
   response?: any;
+  projectLead?: any;
 }> {
-  let { data: link, error } = await supabaseAdmin
+  const { data: link, error } = await supabaseAdmin
     .from('approval_links')
     .select('*')
     .eq('token', token)
     .single();
-
-  if (error || !link) {
-    const { data: request } = await supabaseAdmin
-      .from('change_requests')
-      .select('id')
-      .eq('reference_code', token)
-      .single();
-    if (request) {
-      const result = await supabaseAdmin
-        .from('approval_links')
-        .select('*')
-        .eq('request_id', request.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      link = result.data;
-      error = result.error;
-    }
-  }
 
   if (error || !link) {
     return { state: 'not_found' };
@@ -67,12 +50,25 @@ async function resolveToken(token: string): Promise<{
   // Check if expired
   if (new Date(link.expires_at) < new Date()) {
     return { state: 'expired', link };
+    const { data: request } = await supabaseAdmin
+      .from('change_requests')
+      .select('reference_code, title, created_by, profiles:created_by(name, email)')
+      .eq('id', link.request_id)
+      .single();
+
+    return {
+      state: 'expired',
+      link,
+      request,
+      projectLead: request?.profiles || null,
+    };
   }
 
   // Fetch the request and client
   const { data: request } = await supabaseAdmin
     .from('change_requests')
     .select('*')
+    .select('*, profiles:created_by(name, email, job_title)')
     .eq('id', link.request_id)
     .single();
 
@@ -86,7 +82,13 @@ async function resolveToken(token: string): Promise<{
     .eq('id', request.client_id)
     .single();
 
-  return { state: 'valid', link, request, client };
+  return {
+    state: 'valid',
+    link,
+    request,
+    client,
+    projectLead: request?.profiles || null,
+  };
 }
 
 /**
@@ -110,6 +112,14 @@ router.get('/:token', async (req: Request, res: Response): Promise<void> => {
     res.json({
       state: 'expired',
       expires_at: resolved.link?.expires_at,
+      project_lead: resolved.projectLead ? {
+        name: resolved.projectLead.name,
+        email: resolved.projectLead.email,
+      } : null,
+      request: resolved.request ? {
+        reference_code: resolved.request.reference_code,
+        title: resolved.request.title,
+      } : null,
       error: 'This approval link has expired. Contact your project lead to request a new link.',
     });
     return;
@@ -161,6 +171,8 @@ router.get('/:token', async (req: Request, res: Response): Promise<void> => {
     .select('*')
     .eq('request_id', request.id);
 
+  const { hours, cost } = calculateEstimate(deliverables || [], request.hourly_rate);
+
   const result: ApprovalTokenResult = {
     state: 'valid',
     request: {
@@ -168,14 +180,19 @@ router.get('/:token', async (req: Request, res: Response): Promise<void> => {
       title: request.title,
       client_quote: request.client_quote,
       priority: request.priority,
-      cost: (deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours), 0) * Number(request.hourly_rate || 0),
-      hours: (deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours), 0),
+      cost,
+      hours,
       hourly_rate: request.hourly_rate,
       target_delivery_date: request.target_delivery_date,
       timeline_days: request.timeline_days,
       client_name: client?.company_name || '',
       contact_name: client?.contact_name || '',
     },
+    project_lead: resolved.projectLead ? {
+      name: resolved.projectLead.name,
+      email: resolved.projectLead.email,
+      title: resolved.projectLead.job_title || 'Delivery Lead',
+    } : null,
     deliverables: deliverables || [],
     exclusions: exclusions || [],
   };
@@ -247,7 +264,7 @@ router.post('/:token/approve', async (req: Request, res: Response): Promise<void
 
   // Fetch deliverables for accurate cost calculation
   const { data: deliverables } = await supabaseAdmin.from('deliverables').select('hours').eq('request_id', request.id);
-  const cost = (deliverables || []).reduce((acc, d) => acc + Number(d.hours), 0) * Number(request.hourly_rate || 0);
+  const { cost } = calculateEstimate(deliverables || [], request.hourly_rate);
 
   // Send team notification
   try {
@@ -258,7 +275,6 @@ router.post('/:token/approve', async (req: Request, res: Response): Promise<void
         <p><strong>${request.reference_code}:</strong> ${request.title}</p>
         <p><strong>Client:</strong> ${client?.company_name} (${client?.contact_name})</p>
         <p><strong>Confirmation Code:</strong> ${confirmationCode}</p>
-        <p><strong>Estimated Cost:</strong> $${request.cost?.toLocaleString() || 'N/A'}</p>
         <p><strong>Estimated Cost:</strong> $${cost.toLocaleString()}</p>
         <p>The request is now ready to be marked as in progress.</p>
       `

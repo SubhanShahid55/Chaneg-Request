@@ -31,6 +31,7 @@ router.get('/summary', async (_req: Request, res: Response): Promise<void> => {
     switch (row.status) {
       case 'draft':
       case 'pending':
+      case 'reviewing':
         counts.needs_review++;
         break;
       case 'awaiting_approval':
@@ -96,6 +97,7 @@ router.get('/weekly-velocity', async (_req: Request, res: Response): Promise<voi
       if (['approved', 'in_progress', 'completed'].includes(r.status)) {
         weeks[weekKey].approved++;
       } else if (['pending', 'draft', 'awaiting_approval'].includes(r.status)) {
+      } else if (['pending', 'draft', 'reviewing', 'awaiting_approval'].includes(r.status)) {
         weeks[weekKey].pending++;
       }
     }
@@ -143,6 +145,7 @@ router.get('/weekly-intake', async (_req: Request, res: Response): Promise<void>
 
     if (r.status === 'draft') weeks[weekKey].draft++;
     else if (['pending', 'awaiting_approval'].includes(r.status)) weeks[weekKey].pending++;
+    else if (['pending', 'reviewing', 'awaiting_approval'].includes(r.status)) weeks[weekKey].pending++;
     else if (['approved', 'in_progress', 'completed'].includes(r.status)) weeks[weekKey].approved++;
   }
 

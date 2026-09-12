@@ -63,7 +63,7 @@ router.get('/recent', async (_req: Request, res: Response): Promise<void> => {
 // GET /export — CSV download
 // ---------------------------------------------------------------------------
 
-router.get('/export', async (req: Request, res: Response): Promise<void> => {
+router.get(['/export', '/export.csv'], async (req: Request, res: Response): Promise<void> => {
   const status = req.query.status as string | undefined;
   const q = req.query.q as string | undefined;
 
@@ -90,8 +90,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
 
 
   const rows = (data ?? []).map((r: any) => {
-    const hours = (r.deliverables || []).reduce((acc: number, d: any) => acc + Number(d.hours || 0), 0);
-    const cost = hours * (Number(r.hourly_rate) || 0);
+    const { hours, cost } = calculateEstimate(r.deliverables || [], r.hourly_rate);
     return {
       reference_code: r.reference_code,
       title: r.title,
@@ -299,10 +298,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       client_quote: body.client_quote || null,
       source_channel: body.source_channel || null,
       priority: body.priority || 'standard',
-      hourly_rate: body.hourly_rate || null,
       hourly_rate: rate,
-      hours: estimate.hours,
-      cost: estimate.cost,
       target_delivery_date: body.target_delivery_date || null,
       timeline_days: body.timeline_days || null,
       status: 'draft',
@@ -486,8 +482,15 @@ router.post('/:id/send-for-approval', async (req: Request, res: Response): Promi
     }
 
     validateTransition(request.status as RequestStatus, 'reviewing');
+ 
+    const { data: deliverables } = await supabaseAdmin
+      .from('deliverables')
+      .select('hours')
+      .eq('request_id', request.id);
 
-    if (!request.hourly_rate || !request.hours || !request.target_delivery_date) {
+    const { hours } = calculateEstimate(deliverables || [], request.hourly_rate);
+
+    if (!request.hourly_rate || !hours || hours <= 0 || !request.target_delivery_date) {
       res.status(400).json({
         error: `Estimate for ${request.reference_code} is incomplete. Hourly rate, estimated hours, and target delivery date are all required before sending for approval.`,
       });

@@ -40,7 +40,11 @@ export function normalizeDeliverables(input: unknown): NormalizedDeliverable[] {
   });
 }
 
-export function calculateEstimate(deliverables: Array<{ hours: number }>, hourlyRate: number) {
-  const hours = deliverables.reduce((total, deliverable) => total + deliverable.hours, 0);
-  return { hours, cost: hours * hourlyRate };
+export function calculateEstimate(
+  deliverables: Array<{ hours?: number | string | null }> | null | undefined,
+  hourlyRate: number | string | null = 0
+) {
+  const hours = (deliverables || []).reduce((total, d) => total + (Number(d?.hours) || 0), 0);
+  const rate = Number(hourlyRate) || 0;
+  return { hours, cost: hours * rate };
 }

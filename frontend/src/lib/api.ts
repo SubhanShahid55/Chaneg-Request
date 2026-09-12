@@ -307,6 +307,13 @@ export async function createClient(data: { company_name: string; contact_name: s
   return apiFetch<{ client: ClientOption }>('/clients', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function inviteClientContact(clientId: string, data: { name: string; email: string }) {
+  return apiFetch<{ user: any; invitation_link?: string }>(`/admin/clients/${encodeURIComponent(clientId)}/invite`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function createRequest(data: {
   client_id: string;
   title: string;

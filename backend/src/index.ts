@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { config } from './config.js';
 import { approvalRateLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
+import profileRoutes from './routes/profile.js';
 import clientRoutes from './routes/clients.js';
 import requestRoutes from './routes/requests.js';
 import statsRoutes from './routes/stats.js';
@@ -58,7 +59,7 @@ app.use('/approval', approvalRateLimiter, approvalRoutes);
 
 // ─── Authenticated routes ───────────────────────────────────
 app.use('/auth', authRoutes);                          // POST /auth/session is special — it validates the token itself
-app.use('/profile', requireAuth, authRoutes);           // PATCH /profile
+app.use('/profile', requireAuth, profileRoutes);        // PATCH /profile, POST/DELETE /profile/avatar
 app.use('/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/clients', requireAuth, clientRoutes);
 app.use('/projects', requireAuth, projectRoutes);
@@ -74,7 +75,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // ─── Start ──────────────────────────────────────────────────
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
   app.listen(config.port, () => {
     console.log(`
   ┌─────────────────────────────────────────────┐

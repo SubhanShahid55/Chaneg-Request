@@ -39,6 +39,11 @@ interface PublicApprovalResponse {
     decline_reason?: string;
     responded_at: string;
   };
+  project_lead?: {
+    name?: string;
+    email?: string;
+    title?: string;
+  } | null;
 }
 
 function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) {
@@ -163,6 +168,11 @@ function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) 
   }
 
   if (approvalData.state === 'expired') {
+    const leadName = approvalData.project_lead?.name || 'your project lead';
+    const leadEmail = approvalData.project_lead?.email || 'team@imant.com';
+    const refCode = approvalData.request?.reference_code ? ` for ${approvalData.request.reference_code}` : '';
+    const mailSubject = encodeURIComponent(`Renewed Approval Link Request${refCode}`);
+
     return (
       <div className="min-h-screen bg-[#f8f9ff] flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-white rounded-2xl p-8 border border-amber-200 shadow-lg text-center">
@@ -171,14 +181,14 @@ function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) 
           </div>
           <h1 className="text-xl font-bold text-[#0b1c30]">Approval Link Expired</h1>
           <p className="text-sm text-[#777587] mt-2">
-            This quote link expired on {approvalData.expires_at ? new Date(approvalData.expires_at).toLocaleDateString() : 'earlier'}. Please ask Sarah to dispatch a renewed approval link.
+            This quote link expired on {approvalData.expires_at ? new Date(approvalData.expires_at).toLocaleDateString() : 'earlier'}. Please ask {leadName} to dispatch a renewed approval link.
           </p>
           <a
-            href="mailto:info@imant.com?subject=Expired%20Approval%20Link"
+            href={`mailto:${leadEmail}?subject=${mailSubject}`}
             className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#4f46e5] text-white text-xs font-semibold hover:bg-[#3525cd] transition-colors shadow-xs"
           >
             <span className="material-symbols-outlined text-sm">mail</span>
-            <span>Request New Link</span>
+            <span>Request New Link from {leadName}</span>
           </a>
         </div>
       </div>
@@ -188,6 +198,18 @@ function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) 
   const req = approvalData.request;
   const deliverables = approvalData.deliverables || [];
   const exclusions = approvalData.exclusions || [];
+  const projectLead = approvalData.project_lead;
+  const leadName = projectLead?.name || 'Delivery Lead';
+  const leadFirstName = leadName.split(' ')[0] || 'Lead';
+  const leadEmail = projectLead?.email || 'info@imant.com';
+  const leadTitle = projectLead?.title || 'Senior Delivery Lead';
+  const leadInitials = leadName
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'DL';
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] font-sans text-[#0b1c30] flex flex-col items-center py-10 px-4 sm:px-6">
@@ -328,19 +350,19 @@ function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) 
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#d3e4fe] shadow-sm flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#eff4ff] text-[#3525cd] font-bold text-sm flex items-center justify-center">
-                SM
+                {leadInitials}
               </div>
               <div className="text-xs">
-                <span className="font-bold text-[#0b1c30] block">Sarah Mitchell</span>
-                <span className="text-[#777587]">Senior Delivery Lead · IMANT</span>
+                <span className="font-bold text-[#0b1c30] block">{leadName}</span>
+                <span className="text-[#777587]">{leadTitle} · IMANT</span>
               </div>
             </div>
             <a
-              href={`mailto:info@imant.com?subject=Question%20about%20${req?.reference_code}`}
+              href={`mailto:${leadEmail}?subject=Question%20about%20${req?.reference_code}`}
               className="px-3.5 py-2 rounded-xl bg-[#eff4ff] text-[#3525cd] text-xs font-semibold hover:bg-[#dce9ff] transition-colors flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-sm">mail</span>
-              <span>Ask Sarah a question</span>
+              <span>Ask {leadFirstName} a question</span>
             </a>
           </div>
 

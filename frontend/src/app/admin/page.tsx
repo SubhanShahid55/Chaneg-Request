@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AdminUser, createClient, fetchAdminUsers, inviteAdminUser, resendAdminInvite, storedProfile, updateAdminUser } from '@/lib/api';
+import { AdminUser, ClientOption, createClient, fetchAdminUsers, fetchClients, inviteAdminUser, inviteClientContact, resendAdminInvite, storedProfile, updateAdminUser } from '@/lib/api';
 import { AppProvider, useApp } from '@/lib/store';
 import { Header } from '@/components/Header';
 
@@ -31,6 +31,48 @@ function AdminContent() {
   const [clientSubmitting, setClientSubmitting] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [invitingClientId, setInvitingClientId] = useState<string | null>(null);
+
+  async function loadClients() {
+    try {
+      const data = await fetchClients();
+      setClients(data);
+    } catch {
+      // Ignore client loading failure
+    } finally {
+      setLoadingClients(false);
+    }
+  }
+
+  async function handleInviteClient(client: ClientOption) {
+    setError('');
+    setMessage('');
+    setInvitingClientId(client.id);
+    try {
+      const res = await inviteClientContact(client.id, {
+        name: client.contact_name,
+        email: client.contact_email,
+      });
+      if (res.invitation_link) {
+        setInviteLinkInfo({ email: client.contact_email, link: res.invitation_link });
+        try {
+          await navigator.clipboard.writeText(res.invitation_link);
+          setMessage(`Portal invitation link generated and copied to clipboard for ${client.contact_name} (${client.contact_email}).`);
+        } catch {
+          setMessage(`Portal invitation link generated for ${client.contact_name} (${client.contact_email}). Share the link below.`);
+        }
+      } else {
+        setMessage(`Portal invitation sent to ${client.contact_email}.`);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to invite this client.');
+    } finally {
+      setInvitingClientId(null);
+    }
+  }
+
   async function loadUsers() {
     try {
       const response = await fetchAdminUsers();
@@ -55,6 +97,7 @@ function AdminContent() {
       return;
     }
     void loadUsers();
+    void loadClients();
   }, []);
 
   useEffect(() => {
@@ -110,6 +153,7 @@ function AdminContent() {
       setCompanyName('');
       setContactName('');
       setContactEmail('');
+      await loadClients();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to add this client.');
     } finally {
@@ -211,13 +255,54 @@ function AdminContent() {
           <form onSubmit={handleSubmit} className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_190px_auto] lg:items-end"><Field label="Full name"><input required value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Jordan Lee" className="field" /></Field><Field label="Email address"><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="field" /></Field><Field label="Role / title"><input value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} placeholder="e.g. Project manager" className="field" /></Field><Field label="Access level"><select value={role} onChange={(event) => setRole(event.target.value as 'admin' | 'standard')} className="field"><option value="standard">Standard user</option><option value="admin">Administrator</option></select></Field><button type="submit" disabled={submitting} className="rounded-lg bg-[#4f46e5] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#3525cd] disabled:cursor-not-allowed disabled:opacity-60">{submitting ? 'Sending invitation...' : 'Send invitation'}</button></form>
         </section>
         <section className="mt-6 rounded-2xl border border-[#d3e4fe] bg-white p-6 shadow-[0_8px_24px_rgba(30,58,95,0.05)] md:p-7">
-          <div><h2 className="text-lg font-semibold">Add a client</h2><p className="mt-1 text-sm leading-6 text-[#464555]">Create a client record so change requests can be linked to the right company.</p></div>
-          <form onSubmit={handleClientSubmit} className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+            <div>
+              <h2 className="text-lg font-semibold">Clients &amp; Portal Access</h2>
+              <p className="mt-1 text-sm leading-6 text-[#464555]">
+                Manage client companies and invite client contacts to their dedicated client portal.
+              </p>
+            </div>
+            <span className="rounded-full bg-[#eff4ff] px-3 py-1 text-xs font-semibold text-[#3525cd]">Client management</span>
+          </div>
+
+          <form onSubmit={handleClientSubmit} className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end border-b border-[#e2e8f0] pb-6">
             <Field label="Company name"><input required value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="e.g. Northstar Studio" className="field" /></Field>
             <Field label="Contact name"><input required value={contactName} onChange={(event) => setContactName(event.target.value)} placeholder="e.g. Alex Morgan" className="field" /></Field>
             <Field label="Contact email"><input required type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} placeholder="alex@company.com" className="field" /></Field>
             <button type="submit" disabled={clientSubmitting} className="rounded-lg bg-[#4f46e5] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#3525cd] disabled:cursor-not-allowed disabled:opacity-60">{clientSubmitting ? 'Adding client...' : 'Add client'}</button>
           </form>
+
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-[#777587]">Existing Clients</h3>
+            {loadingClients ? (
+              <div className="mt-3 space-y-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-12 animate-pulse rounded-lg bg-[#eff4ff]" />
+                ))}
+              </div>
+            ) : clients.length === 0 ? (
+              <p className="mt-3 text-sm text-[#777587]">No clients added yet. Add a client above to enable portal invitations.</p>
+            ) : (
+              <div className="mt-3 divide-y divide-[#e2e8f0]">
+                {clients.map((c) => (
+                  <div key={c.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium text-[#0b1c30]">{c.company_name}</p>
+                      <p className="text-xs text-[#464555]">Primary contact: {c.contact_name} ({c.contact_email})</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleInviteClient(c)}
+                      disabled={invitingClientId === c.id}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#c7d2fe] bg-[#eff4ff] px-3 py-1.5 text-xs font-semibold text-[#3525cd] hover:bg-[#dbeafe] disabled:opacity-60 transition"
+                    >
+                      {invitingClientId === c.id ? 'Generating invite...' : 'Invite to Portal'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
         <section className="mt-6 overflow-hidden rounded-2xl border border-[#d3e4fe] bg-white shadow-[0_8px_24px_rgba(30,58,95,0.05)]">
           <div className="border-b border-[#e2e8f0] px-6 py-5 md:px-7"><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center"><div><h2 className="text-lg font-semibold">People with access</h2><p className="mt-1 text-sm text-[#464555]">{loading ? 'Loading accounts...' : `${filteredUsers.length} of ${users.length} users shown`}</p></div><div className="flex flex-col gap-3 sm:flex-row"><label><span className="sr-only">Search users</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" className="field min-w-60" /></label><label><span className="sr-only">Filter by role</span><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)} className="field"><option value="all">All roles</option><option value="admin">Administrators</option><option value="standard">Standard users</option></select></label><label><span className="sr-only">Filter by status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="field"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label></div></div></div>
