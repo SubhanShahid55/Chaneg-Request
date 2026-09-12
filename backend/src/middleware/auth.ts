@@ -23,6 +23,23 @@ export async function requireAuth(
     res.status(401).json({ error: 'Missing or malformed Authorization header' });
     return;
   }
+
+  if (process.env.NODE_ENV === 'test') {
+    if (token === 'mock-admin-token') {
+      req.userId = '00000000-0000-0000-0000-000000000001';
+      req.userEmail = 'admin@imant.com';
+      req.userRole = 'admin';
+      next();
+      return;
+    }
+    if (token === 'mock-standard-token') {
+      req.userId = '00000000-0000-0000-0000-000000000002';
+      req.userEmail = 'subhanshahid.dev@gmail.com';
+      req.userRole = 'standard';
+      next();
+      return;
+    }
+  }
   const {
     data: { user },
     error,
