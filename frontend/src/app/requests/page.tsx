@@ -338,7 +338,6 @@ function RequestsContent() {
                   {isLoading && requests.length === 0 ? (
                     // Loading skeleton rows
                     Array.from({ length: 5 }).map((_, idx) => (
-                    Array.from({ length: 1 }).map((_, idx) => (
                       <tr key={idx} className="animate-pulse">
                         <td className="py-4 px-4">
                           <div className="h-4 bg-slate-200 rounded w-20 mb-2" />
