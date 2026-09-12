@@ -21,8 +21,6 @@ export const config = {
   supabaseServiceRoleKey: requireAnyEnv('SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'),
   supabaseAnonKey: requireAnyEnv('SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ANON_KEY'),
   resendApiKey: process.env.RESEND_API_KEY || '',
-  fromEmail: process.env.FROM_EMAIL || 'noreply@momentumstudio.dev',
-  teamEmail: process.env.TEAM_EMAIL || 'sarah@momentumstudio.dev',
   fromEmail: process.env.FROM_EMAIL || 'noreply@imant.com',
   teamEmail: process.env.TEAM_EMAIL || 'info@imant.com',
   appUrl: process.env.APP_URL || 'http://localhost:3000',
