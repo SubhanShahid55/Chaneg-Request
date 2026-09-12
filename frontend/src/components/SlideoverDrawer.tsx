@@ -93,7 +93,6 @@ export function SlideoverDrawer() {
       <aside className="relative z-10 flex h-full w-full max-w-[680px] flex-col overflow-y-auto bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-[#e2e8f0] p-6">
           <div><div className="text-xs font-semibold text-[#4f46e5]">Step {step} of 2</div><h2 className="text-xl font-bold text-[#0b1c30]">{step === 1 ? 'New request' : 'Build the estimate'}</h2><p className="text-xs text-[#464555]">{step === 1 ? 'Capture the client request and project.' : `${title} · ${rawQuote}`}</p></div>
-          <div><h2 className="text-xl font-bold text-[#0b1c30]">New request</h2><p className="text-xs text-[#464555]">Capture the client request and project.</p></div>
           <button type="button" onClick={() => setIsSlideoverOpen(false)} className="p-2"><span className="material-symbols-outlined">close</span></button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 p-6">
@@ -111,13 +110,6 @@ export function SlideoverDrawer() {
             <div className="flex justify-between rounded-lg bg-[#f8f9ff] p-4 text-sm font-semibold"><span>Total deliverables</span><span>{totalHours}h · ${(totalHours * rate).toLocaleString()}</span></div>
           </>}
           <div className="mt-auto flex justify-end gap-3 border-t pt-4">{step === 2 && <button type="button" onClick={() => setStep(1)} className="mr-auto rounded-lg border px-4 py-2 text-sm">Back</button>}<button type="button" onClick={() => setIsSlideoverOpen(false)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button><button type="submit" className="rounded-lg bg-[#4f46e5] px-5 py-2 text-sm font-semibold text-white">{step === 1 ? 'Next' : 'Save request'}</button></div>
-          <label className="text-sm font-medium">Client<select value={client} onChange={(event) => setClient(event.target.value)} required className="mt-1.5 h-10 w-full rounded-lg border px-3"><option value="">Select a client</option>{clients.map((item) => <option key={item.id} value={item.id}>{item.company_name}</option>)}</select></label>
-          <label className="text-sm font-medium">Project<select value={project} onChange={(event) => setProject(event.target.value)} required disabled={!client} className="mt-1.5 h-10 w-full rounded-lg border px-3"><option value="">{client ? 'Select a project' : 'Select a client first'}</option>{projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          {client && <div className="rounded-lg border border-dashed p-3 text-xs">{showProjectForm ? <div className="flex gap-2"><input value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="New project name" className="min-w-0 flex-1 rounded border px-2" /><button type="button" onClick={() => void createInlineProject()} className="rounded bg-[#4f46e5] px-3 py-1.5 text-white">Create</button></div> : <button type="button" onClick={() => setShowProjectForm(true)} className="font-semibold text-[#4f46e5]">+ Create a project for this client</button>}</div>}
-          <label className="text-sm font-medium">Request title<input value={title} onChange={(event) => setTitle(event.target.value)} required className="mt-1.5 h-10 w-full rounded-lg border px-3" /></label>
-          <label className="text-sm font-medium">Client quote<textarea value={rawQuote} onChange={(event) => setRawQuote(event.target.value)} rows={3} className="mt-1.5 w-full rounded-lg border p-3" /></label>
-          <label className="text-sm font-medium">Priority<select value={urgency} onChange={(event) => setUrgency(event.target.value as UrgencyLevel)} className="mt-1.5 h-10 w-full rounded-lg border px-3"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label>
-          <div className="mt-auto flex justify-end gap-3 border-t pt-4"><button type="button" onClick={() => setIsSlideoverOpen(false)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button><button type="submit" className="rounded-lg bg-[#4f46e5] px-5 py-2 text-sm font-semibold text-white">Save request</button></div>
         </form>
       </aside>
     </div>
