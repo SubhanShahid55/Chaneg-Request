@@ -332,7 +332,6 @@ function ClientApprovalContent({ params }: { params: Promise<{ id: string }> }) 
               </div>
               <div className="text-xs">
                 <span className="font-bold text-[#0b1c30] block">Sarah Mitchell</span>
-                <span className="text-[#777587]">Senior Delivery Lead · Momentum Studio</span>
                 <span className="text-[#777587]">Senior Delivery Lead · IMANT</span>
               </div>
             </div>

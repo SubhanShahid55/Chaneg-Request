@@ -238,16 +238,6 @@ export function Header() {
               </div>
             </button>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="hidden rounded-lg border border-[#e2b9b5] px-3 py-2 text-xs font-semibold text-[#ba1a1a] transition hover:bg-[#fff2f0] lg:inline-flex lg:items-center lg:gap-1.5"
-            >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">
-                logout
-              </span>{' '}
-              Log out
-            </button>
 
             {/* Mobile Hamburger Toggle Button */}
             <button

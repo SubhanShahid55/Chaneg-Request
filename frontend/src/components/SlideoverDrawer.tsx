@@ -76,8 +76,6 @@ export function SlideoverDrawer() {
     const valid = deliverables.filter((item) => item.description.trim() && item.hours > 0);
     if (!project || valid.length === 0) { showToast('Estimate incomplete', 'Select a project and add at least one deliverable.', 'error'); return; }
     void addRequest({ databaseId: client, project, title, rawQuote, urgency, hourlyRate: rate, targetTurnaroundDays: timelineDays, deliverables: valid });
-    if (!project) { showToast('Request incomplete', 'Select a project.', 'error'); return; }
-    void addRequest({ databaseId: client, project, title, rawQuote, urgency, deliverables: [] });
     setIsSlideoverOpen(false);
     setStep(1);
     setDeliverables([blankDeliverable()]);

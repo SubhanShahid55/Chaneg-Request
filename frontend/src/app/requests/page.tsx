@@ -487,7 +487,6 @@ function RequestsContent() {
 
       <footer className="w-full bg-white border-t border-[#e2e8f0] mt-auto py-6">
         <div className="max-w-[75rem] mx-auto px-4 md:px-6 flex items-center justify-between text-xs text-[#777587]">
-          <span>© 2025 ChangeFlow · Professional Client Scope Management</span>
           <span>© {new Date().getFullYear()} ChangeFlow · Professional Client Scope Management</span>
           <span>
             Showing {filteredAndSortedRequests.length} of {requests.length} requests
