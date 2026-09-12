@@ -272,6 +272,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid deliverables.' });
     return;
   }
+  const estimate = calculateEstimate(deliverables, body.hourly_rate);
   const estimate = calculateEstimate(deliverables, rate);
 
   // Generate reference code
